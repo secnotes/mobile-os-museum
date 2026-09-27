@@ -1,68 +1,72 @@
-# 掌上博物馆 · Mobile OS Museum
+# Mobile OS Museum
 
-> Boot classic phones in your browser — 从 1992 年的大哥大到 2011 年的 Windows Phone，逐像素重燃那些经典移动系统。
+**English** · [简体中文](./README.zh-CN.md)
 
-在浏览器里重新点亮那些经典手机系统。
+> Boot classic phones in your browser — pixel-accurately relive the mobile operating systems from 1992 to 2011.
 
-这是一个**纯前端的经典手机模拟器**：从 1995 年的大哥大到 2011 年的 Windows Phone，
-每一台展品都能真正开机、操作——单色屏、实体键盘、T9 拼音、贪吃蛇、会自动回复的短信，
-以及会随真实时间慢慢流失的电量。无需安装、无需后端，所有数据都保存在你自己的浏览器里。
+A **pure-frontend classic phone emulator**: from the 1995 brick phone to the 2011 Windows Phone,
+every exhibit truly boots and operates — monochrome screens, physical keypads, T9 pinyin,
+Snake, auto-replying SMS, and a battery that slowly drains in real time.
+No install, no backend; all data lives in your own browser.
 
-## 展品
+## Exhibits
 
-八台手机，串起移动电话近二十年的演变（展馆按年代排列）：
+Eight phones tracing nearly two decades of mobile evolution (the gallery is ordered by era):
 
-| 年代 | 展品 | 系统 / 形态 | 屏幕 |
+| Year | Exhibit | OS / Form | Screen |
 | --- | --- | --- | --- |
-| 1992 | 摩托罗拉 3200（大哥大） | 自研精简系统 · 外置天线 | 72×48 黄绿背光 |
-| 2000 | 诺基亚 3310 | 功能机 · 直板 | 84×48 单色 |
-| 2003 | 诺基亚 1100 | 功能机 · 直板（内置手电筒） | 96×65 绿背光 |
-| 2006 | 诺基亚 N73 | Symbian S60 · 智能直板 | 240×320 彩色 TFT |
-| 2007 | 苹果 iPhone 2G | iPhone OS 1.0 · 全触屏（单 Home 键） | 320×480 Multi-Touch |
-| 2008 | HTC Dream（T-Mobile G1） | Android 1.0 · 侧滑 QWERTY 全键盘 | 320×480 触屏 |
-| 2008 | 黑莓 Bold 9000 | BlackBerry OS 4.6 · 轨迹球 + 全 QWERTY 键盘 | 480×320 半 VGA |
-| 2011 | 诺基亚 Lumia 800 | Windows Phone 7.5（Mango）· 全触屏 | 480×800 AMOLED |
+| 1992 | Motorola 3200 (brick) | Custom minimal OS · external antenna | 72×48 yellow-green backlight |
+| 2000 | Nokia 3310 | Feature phone · candybar | 84×48 monochrome |
+| 2003 | Nokia 1100 | Feature phone · candybar (built-in flashlight) | 96×65 green backlight |
+| 2006 | Nokia N73 | Symbian S60 · smart candybar | 240×320 color TFT |
+| 2007 | Apple iPhone 2G | iPhone OS 1.0 · full touch (single Home key) | 320×480 Multi-Touch |
+| 2008 | HTC Dream (T-Mobile G1) | Android 1.0 · side-sliding QWERTY | 320×480 touch |
+| 2008 | BlackBerry Bold 9000 | BlackBerry OS 4.6 · trackball + full QWERTY | 480×320 half-VGA |
+| 2011 | Nokia Lumia 800 | Windows Phone 7.5 (Mango) · full touch | 480×800 AMOLED |
 
-## 你可以在里面做什么
+## What you can do
 
-- **开机关机**：每台手机都还原了各自的开机画面与开机铃声（N73 / 3310 的 Nokia tune、
-  G1 的 ANDROID 点亮画面、Lumia 的 Windows 四格旗……）。
-- **打电话**：数字键直接拨号、听回铃音；也可以从电话本里呼叫联系人。
-- **收发短信**：用 T9 拼音或屏幕键盘打字，发给「妈妈」的短信会收到自动回复；
-  还能在情景编辑器里安排「几分钟后来电 / 来短信」。
-- **玩贪吃蛇**：从单色 Nokia 到彩色 S60，1100 上是会穿墙的贪吃蛇 II。
-- **探索各系统特色**：iPhone 2G 的滑动解锁与 Springboard、G1 的下拉通知栏与 17 个出厂应用、
-  黑莓的轨迹球与 BBM、Lumia 的 Metro 瓷贴与一键换色、
-  1100 的手电筒、计算器、自编铃声、相机等。
-- **观察电量**：电量按真实时间衰减并持久化——关掉网页，它也在慢慢耗电。
+- **Power on / off**: every phone reproduces its own boot screen and startup tone
+  (Nokia tune on the N73 / 3310, the ANDROID glow on the G1, the Windows four-quad flag on the Lumia…).
+- **Make calls**: dial directly with the number keys and hear the ringback tone, or call a contact from the phonebook.
+- **Send & receive SMS**: type with T9 pinyin or the on-screen keyboard; messages to "Mom" get an auto-reply.
+  You can also schedule "incoming call / SMS in a few minutes" via the scenario editor.
+- **Play Snake**: from monochrome Nokia to color S60 — on the 1100 it's the wall-passing Snake II.
+- **Explore each OS**: slide-to-unlock and Springboard on the iPhone 2G, the pull-down notification shade and
+  17 stock apps on the G1, the trackball and BBM on the BlackBerry, Metro tiles and one-tap recolor on the Lumia,
+  plus the 1100's flashlight, calculator, ringtone composer, camera and more.
+- **Watch the battery**: battery drains in real time and is persisted — close the tab and it keeps slowly discharging.
 
-## 技术实现
+## Tech
 
-- **React 18 + TypeScript + Vite**：界面外壳用 React，手机画面全部逐像素绘制到 `<canvas>`。
-- **虚拟硬件层**：屏幕像素缓冲（单色 1bit / 调色板彩色）、统一输入总线（键盘、按键、触屏、
-  手势）、WebAudio 合成音效、IndexedDB 持久化、帧循环与模拟电池。
-- **代码分包**：每套手机系统是独立的 chunk，点开展品才会按需加载。
-- **无视觉端到端测试**：`e2e/` 下 13 个套件用 headless Chromium + CDP 驱动，
-  通过画布像素计数、IndexedDB 直读与几何断言验证行为，不依赖截图判读。
+- **React 18 + TypeScript + Vite**: React for the shell; every phone screen is drawn pixel-by-pixel onto a `<canvas>`.
+- **Virtual hardware layer**: screen pixel buffers (monochrome 1bit / palette color), a unified input bus
+  (keyboard, keys, touch, gestures), WebAudio-synthesized sound, IndexedDB persistence, a frame loop and a simulated battery.
+- **Code splitting**: each phone OS is its own chunk, lazy-loaded only when you open the exhibit.
+- **Visual-free end-to-end tests**: 13 suites under `e2e/` driven by headless Chromium + CDP, verifying behavior
+  via canvas pixel counts, direct IndexedDB reads and geometric assertions — no screenshot diffing.
 
-## 本地运行
+## Run locally
 
 ```bash
 npm install
-npm run dev        # 本地开发
-npm run build      # 类型检查并产出到 dist/
-npm run preview    # 本地预览生产构建
-npm run test:e2e   # 构建 + 预览 + 跑全部端到端测试
+npm run dev        # local development
+npm run build      # type-check and build into dist/
+npm run preview    # preview the production build locally
+npm run test:e2e   # build + preview + run all end-to-end tests
 ```
 
-## 数据与隐私
+## Data & privacy
 
-所有数据（通讯录、短信、设置、电量等）只保存在浏览器本地的 IndexedDB 中，
-不会上传到任何服务器。清除浏览器数据或使用展品内的「恢复出厂」即可清空。
+All data (contacts, messages, settings, battery, etc.) is stored only in your browser's local IndexedDB
+and never uploaded to any server. Clear your browser data or use the in-device "factory reset" to wipe it.
 
-## 免责声明
+## Disclaimer
 
-本项目与文中涉及的手机厂商及商标持有人没有任何隶属、代言或授权关系。所有品牌名、商标与产品形象均归各自所有者所有，在本项目中仅用于历史设备的识别与还原。若相关权利人认为内容存在不当之处，请联系作者，我们会及时处理。
+This project has no affiliation, endorsement, or authorization with any phone manufacturer or trademark holder
+mentioned herein. All brand names, trademarks and product likenesses belong to their respective owners and are
+used here solely for identification and historical restoration of legacy devices. If any rights holder believes
+content is inappropriate, please contact the author and we will address it promptly.
 
 ## License
 
