@@ -1,0 +1,2007 @@
+:root {
+  color-scheme: dark;
+  --ink: #efe9dc;
+  --ink-dim: #b7ae9d;
+  --paper: #14120f;
+  --card: #1d1a15;
+  --card-edge: #2c2820;
+  --accent: #d8a24a;
+  --accent-dim: #8f6a2e;
+  --page-glow: #23201a;
+  /* 强调色上的文字 / 悬停高亮（夜间：金字配深字） */
+  --accent-ink: #221a0c;
+  --accent-hi: #e6b05e;
+  /* 语义别名（设置页等） */
+  --fg: #efe9dc;
+  --muted: #b7ae9d;
+  --edge: #2c2820;
+  --input-bg: #14120f;
+  --danger: #e06c5a;
+}
+
+/* 日间主题：宣纸米白 */
+:root[data-theme='light'] {
+  color-scheme: light;
+  --ink: #2a2418;
+  --ink-dim: #6f6549;
+  --paper: #f1ecdc;
+  --card: #faf6e9;
+  --card-edge: #d8cfb6;
+  --accent: #96691a;
+  --accent-dim: #7c5a1e;
+  --page-glow: #e5dec6;
+  /* 日间：深金底配浅字，悬停再加深 */
+  --accent-ink: #fdf6e3;
+  --accent-hi: #7c5514;
+  --fg: #2a2418;
+  --muted: #6f6549;
+  --edge: #d8cfb6;
+  --input-bg: #ffffff;
+  --danger: #b23c2e;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: 'Noto Serif SC', 'Songti SC', 'SimSun', 'Georgia', serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+button {
+  font-family: inherit;
+}
+
+/* ---------- 展馆 ---------- */
+
+.gallery {
+  max-width: 920px;
+  margin: 0 auto;
+  padding: 64px 24px 96px;
+}
+
+.gallery-header {
+  text-align: center;
+  margin-bottom: 56px;
+}
+
+.gallery-header h1 {
+  font-size: 44px;
+  letter-spacing: 0.18em;
+  margin: 0 0 8px;
+  font-weight: 600;
+}
+
+.gallery-sub {
+  color: var(--accent);
+  letter-spacing: 0.35em;
+  text-transform: uppercase;
+  font-size: 12px;
+  margin: 0 0 28px;
+  font-family: ui-monospace, monospace;
+}
+
+.gallery-intro {
+  color: var(--ink-dim);
+  line-height: 1.9;
+  max-width: 560px;
+  margin: 0 auto;
+  font-size: 15px;
+}
+
+.timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+}
+
+.gallery-footer {
+  text-align: center;
+  color: var(--ink-dim);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  margin-top: 40px;
+}
+
+.device-card {
+  display: grid;
+  grid-template-columns: 72px 1fr;
+  background: var(--card);
+  border: 1px solid var(--card-edge);
+  border-radius: 14px;
+  padding: 24px;
+  gap: 24px;
+}
+
+.device-card-year {
+  font-family: ui-monospace, monospace;
+  font-size: 22px;
+  color: var(--accent);
+  text-align: center;
+  border-right: 1px dashed var(--card-edge);
+  padding-top: 4px;
+}
+
+.device-card-name {
+  font-size: 24px;
+  font-weight: 600;
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.device-card-maker {
+  font-size: 13px;
+  color: var(--ink-dim);
+  letter-spacing: 0.1em;
+}
+
+.device-card-tagline {
+  color: var(--accent);
+  font-size: 14px;
+  margin: 6px 0 14px;
+}
+
+.device-card-lcd {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border: 3px solid #333;
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-size: 13px;
+  max-width: 240px;
+  min-width: 200px;
+}
+
+/* 摩托罗拉 3200：黄绿背光单色 LCD */
+.lcd-brick {
+  background: #b8b87a;
+  color: #2e2e1a;
+  font-family: ui-monospace, monospace;
+  font-weight: 700;
+  box-shadow: inset 0 0 12px rgba(46, 46, 26, 0.4);
+}
+
+/* 诺基亚 3310：经典绿屏 */
+.lcd-3310 {
+  background: #9db06c;
+  color: #1e2a12;
+  font-family: ui-monospace, monospace;
+  font-weight: 700;
+  box-shadow: inset 0 0 10px rgba(30, 42, 18, 0.35);
+}
+
+/* 诺基亚 1100：更浅的绿白背光 */
+.lcd-1100 {
+  background: #b5c48e;
+  color: #23301a;
+  font-family: ui-monospace, monospace;
+  font-weight: 700;
+  box-shadow: inset 0 0 10px rgba(35, 48, 26, 0.3);
+}
+
+/* 诺基亚 N73：S60v3 浅蓝渐变状态栏 */
+.lcd-n73 {
+  background: linear-gradient(180deg, #f4f8fd 0%, #cfdff2 55%, #a9c4e4 100%);
+  color: #1c3a5e;
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  border-color: #7d94ac;
+}
+
+/* iPhone 2G：黑色状态栏白字 */
+.lcd-iphone {
+  background: linear-gradient(180deg, #4a4a4a 0%, #2c2c2c 50%, #1a1a1a 100%);
+  color: #f2f2f2;
+  font-family: 'Helvetica Neue', system-ui, sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  border-color: #111;
+}
+
+/* HTC G1：Android 1.x 浅灰状态栏，绿色信号 */
+.lcd-g1 {
+  background: linear-gradient(180deg, #f5f5f5 0%, #d4d4d4 100%);
+  color: #3c3c3c;
+  font-family: Roboto, system-ui, sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  border-color: #9a9a9a;
+}
+
+.lcd-g1-sig {
+  color: #6aa84f;
+}
+
+/* 黑莓 Bold 9000：黑色高光横幅 */
+.lcd-bb {
+  background: linear-gradient(180deg, #585858 0%, #2e2e2e 45%, #101010 100%);
+  color: #fff;
+  font-family: 'Helvetica Neue', system-ui, sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  border-color: #000;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35);
+}
+
+/* Lumia 800：WP7 纯黑极简状态栏 */
+.lcd-lumia {
+  background: #000;
+  color: #fff;
+  font-family: 'Segoe WP', 'Segoe UI', system-ui, sans-serif;
+  font-size: 12px;
+  font-weight: 400;
+  border-color: #000;
+}
+
+.device-card-desc {
+  color: var(--ink-dim);
+  line-height: 1.8;
+  font-size: 14px;
+  margin: 14px 0;
+}
+
+.device-card-specs {
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 0;
+  margin: 0 0 18px;
+}
+
+.device-card-specs li {
+  font-size: 12px;
+  color: var(--ink-dim);
+  border: 1px solid var(--card-edge);
+  border-radius: 999px;
+  padding: 3px 10px;
+}
+
+.boot-btn {
+  background: var(--accent);
+  color: var(--accent-ink);
+  border: none;
+  border-radius: 8px;
+  padding: 10px 22px;
+  font-size: 15px;
+  cursor: pointer;
+  letter-spacing: 0.08em;
+  transition: transform 0.08s ease, background 0.15s ease;
+}
+
+.boot-btn:hover {
+  background: var(--accent-hi);
+  transform: translateY(-1px);
+}
+
+.boot-btn:active {
+  transform: translateY(1px);
+}
+
+.notfound {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ---------- 设备页 ---------- */
+
+.device-page {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 20px 16px 60px;
+  background: radial-gradient(1200px 600px at 50% -10%, var(--page-glow) 0%, var(--paper) 60%);
+}
+
+.device-topbar {
+  width: 100%;
+  max-width: 560px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
+.device-topbar-name {
+  color: var(--ink-dim);
+  font-size: 13px;
+  letter-spacing: 0.1em;
+}
+
+.ghost-btn {
+  background: none;
+  border: 1px solid var(--card-edge);
+  color: var(--ink-dim);
+  border-radius: 8px;
+  padding: 7px 14px;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.ghost-btn:hover {
+  color: var(--ink);
+  border-color: var(--accent-dim);
+}
+
+.phone {
+  --bezel: #1d2b36;
+  --btn: #2b455b;
+  position: relative;
+  background: linear-gradient(160deg, var(--body) 0%, var(--body-edge) 100%);
+  border-radius: 30px 30px 44px 44px;
+  padding: 26px 22px 30px;
+  width: min(480px, 100%);
+  box-shadow:
+    0 24px 60px rgba(0, 0, 0, 0.55),
+    inset 0 2px 3px rgba(255, 255, 255, 0.25),
+    inset 0 -3px 6px rgba(0, 0, 0, 0.4);
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: manipulation;
+}
+
+.phone-power {
+  position: absolute;
+  top: 64px;
+  right: -6px;
+  width: 7px;
+  height: 42px;
+  background: var(--body-edge);
+  border-radius: 0 4px 4px 0;
+  cursor: pointer;
+  box-shadow: inset -2px 0 3px rgba(0, 0, 0, 0.4);
+}
+
+.earpiece {
+  width: 74px;
+  height: 7px;
+  margin: 0 auto 10px;
+  background: #0c0f12;
+  border-radius: 999px;
+  box-shadow: inset 0 2px 3px rgba(0, 0, 0, 0.9);
+}
+
+.brand {
+  text-align: center;
+  font-family: ui-monospace, monospace;
+  font-size: 11px;
+  letter-spacing: 0.42em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.75);
+  margin-bottom: 10px;
+}
+
+.screen-bezel {
+  background: var(--bezel);
+  border-radius: 14px 14px 6px 6px;
+  padding: 14px;
+  display: flex;
+  justify-content: center;
+  box-shadow:
+    inset 0 3px 8px rgba(0, 0, 0, 0.65),
+    0 1px 0 rgba(255, 255, 255, 0.12);
+}
+
+.screen-bezel canvas {
+  image-rendering: pixelated;
+  display: block;
+  border-radius: 3px;
+}
+
+/* 导航区 */
+
+.nav-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.nav-pad {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(3, 44px);
+  grid-template-rows: repeat(3, 40px);
+  gap: 2px;
+}
+
+.nav-up { grid-area: 1 / 2; }
+.nav-left { grid-area: 2 / 1; }
+.nav-ok { grid-area: 2 / 2; }
+.nav-right { grid-area: 2 / 3; }
+.nav-down { grid-area: 3 / 2; }
+
+.soft {
+  flex: 1;
+  height: 34px;
+}
+
+.soft-label {
+  display: block;
+  color: #cfd8de;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.c-row {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 6px;
+}
+
+.c-key {
+  min-width: 56px;
+  height: 30px;
+}
+
+/* 九宫格 */
+
+.keypad {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.pbtn {
+  background: linear-gradient(180deg, var(--btn) 0%, var(--body-edge) 100%);
+  /* 手机按键是深色机身上的实体键，两种主题下都保持浅色文字 */
+  color: #e8eef3;
+  border: 1px solid rgba(0, 0, 0, 0.35);
+  border-radius: 10px;
+  cursor: pointer;
+  font-family: inherit;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  box-shadow:
+    0 3px 0 rgba(0, 0, 0, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.22);
+  transition: transform 0.05s ease, box-shadow 0.05s ease;
+}
+
+.pbtn:active,
+.pbtn.pressed {
+  transform: translateY(2px);
+  box-shadow:
+    0 1px 0 rgba(0, 0, 0, 0.35),
+    inset 0 1px 2px rgba(0, 0, 0, 0.4);
+}
+
+.digit-key {
+  height: 44px;
+}
+
+.key-face {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  line-height: 1.1;
+}
+
+.key-digit {
+  font-size: 17px;
+  font-weight: 700;
+  color: #eef4f8;
+}
+
+.key-sub {
+  font-size: 8px;
+  color: rgba(255, 255, 255, 0.55);
+  letter-spacing: 0.1em;
+}
+
+.nav-ok {
+  border-radius: 50%;
+  font-weight: 700;
+  font-size: 13px;
+  color: #eef4f8;
+  background: radial-gradient(circle at 35% 30%, #4a6a86 0%, var(--btn) 70%);
+}
+
+/* ---------- 摩托罗拉 International 3200（brick）机壳 ---------- */
+
+/* 天线：机顶中央，粗橡皮根 + 细鞭（根粗尖细） */
+.phone-antenna {
+  position: absolute;
+  top: -208px;
+  left: 50%;
+  translate: -50% 0;
+  width: 12px;
+  height: 216px;
+  border-radius: 6px 6px 2px 2px;
+  background: linear-gradient(180deg,
+    #0d0f11 0%, #23272b 26%,
+    #15171a 62%, #0b0c0e 100%);
+  box-shadow: inset 2px 0 2px rgba(255, 255, 255, 0.14), 0 8px 18px rgba(0, 0, 0, 0.55);
+}
+
+.phone-antenna::before {
+  /* 粗根护套 */
+  content: '';
+  position: absolute;
+  left: -6px;
+  bottom: -2px;
+  width: 24px;
+  height: 74px;
+  border-radius: 10px 10px 4px 4px;
+  background: linear-gradient(180deg, #1a1d20 0%, #0c0e10 100%);
+  box-shadow: inset 2px 0 3px rgba(255, 255, 255, 0.1);
+}
+
+.phone-antenna::after {
+  /* 细鞭段 */
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 50%;
+  translate: -50% 0;
+  width: 5px;
+  height: 142px;
+  border-radius: 3px 3px 0 0;
+  background: linear-gradient(180deg, #202428 0%, #101316 100%);
+}
+
+.phone.brick {
+  width: min(300px, 100%);
+  border-radius: 18px 18px 26px 26px;
+  padding: 20px 18px 14px;
+  /* 天线外凸 208px，预留空间避免盖住顶栏 */
+  margin-top: 218px;
+}
+
+/* 杯状内凹听筒：圆形，中央高光一横 */
+.earpiece-cup {
+  width: 64px;
+  height: 64px;
+  margin: 0 auto 8px;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 50% 42%, #050607 0%, #14171a 62%, #2a2e33 100%);
+  box-shadow:
+    inset 0 4px 10px rgba(0, 0, 0, 0.95),
+    inset 0 -2px 4px rgba(255, 255, 255, 0.08),
+    0 1px 2px rgba(255, 255, 255, 0.1);
+  position: relative;
+}
+
+.earpiece-cup::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  translate: -50% -50%;
+  width: 30px;
+  height: 3px;
+  border-radius: 2px;
+  background: #32363b;
+}
+
+.phone.brick .screen-bezel {
+  border-radius: 8px 8px 3px 3px;
+  padding: 8px;
+  background: #17191c;
+}
+
+/* 屏幕下琥珀 LED */
+.brick-led {
+  width: 4px;
+  height: 4px;
+  margin: 3px auto 0;
+  border-radius: 50%;
+  background: #d9a13b;
+  box-shadow: 0 0 6px rgba(217, 161, 59, 0.8);
+}
+
+/* 21 键网格（3 列 × 7 行，数字 4 行 + 功能 3 行） */
+.brick-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 7px;
+  margin-top: 10px;
+}
+
+.brick-grid .pbtn {
+  border-radius: 50%;
+  background: linear-gradient(180deg, #3a3e43 0%, #23262a 100%);
+  color: #eef1f4;
+}
+
+.brick-key {
+  height: 48px;
+}
+
+.brick-fn {
+  height: 50px;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.brick-call {
+  background: linear-gradient(180deg, #4ca56a 0%, #2c6e44 100%) !important;
+  font-size: 20px;
+}
+
+.brick-end {
+  background: linear-gradient(180deg, #b14d52 0%, #742d31 100%) !important;
+  font-size: 20px;
+}
+
+.brick-grid .brick-pwr {
+  color: #d9a13b;
+}
+
+.power-icon {
+  width: 22px;
+  height: 22px;
+  display: block;
+}
+
+.ac-label {
+  display: flex;
+  flex-direction: column;
+  line-height: 0.95;
+  font-size: 13px;
+}
+
+.menu-key {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.05;
+}
+
+.menu-key b {
+  font-size: 9px;
+  letter-spacing: 0.08em;
+}
+
+.menu-key i {
+  font-style: normal;
+  font-size: 14px;
+}
+
+/* 底部铭牌条 */
+.brick-badge {
+  margin-top: 10px;
+  padding: 5px 8px;
+  border-radius: 6px;
+  background: linear-gradient(180deg, #101316 0%, #07080a 100%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  box-shadow: inset 0 1px 2px rgba(255, 255, 255, 0.08);
+}
+
+.brick-badge-name {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.28em;
+  color: #eef1f4;
+}
+
+.brick-badge-sub {
+  font-size: 8px;
+  font-style: italic;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+/* ---------- Nokia 1100（n1100）密封膜片机壳 ---------- */
+
+/* 顶部银色面板（含听筒栅 + 厂牌） */
+.n1100-plate {
+  background: linear-gradient(180deg, #d7dad2 0%, #b9bdb5 100%);
+  border-radius: 10px 10px 0 0;
+  margin: -4px -4px 0;
+  padding: 10px 10px 8px;
+  box-shadow: inset 0 1px 2px rgba(255, 255, 255, 0.6);
+}
+
+.earpiece-grille {
+  width: 86px;
+  height: 10px;
+  margin: 0 auto 5px;
+  background:
+    linear-gradient(#555a55, #555a55) 0 0 / 100% 3px no-repeat,
+    linear-gradient(#555a55, #555a55) 0 7px / 100% 3px no-repeat;
+}
+
+.phone.n1100 .n1100-plate .brand {
+  color: #3c4140;
+  font-size: 12px;
+  letter-spacing: 0.3em;
+  margin-bottom: 0;
+}
+
+.phone.n1100 {
+  width: min(340px, 100%);
+  border-radius: 26px 26px 40px 40px;
+  padding: 18px 16px 24px;
+}
+
+.phone.n1100 .screen-bezel {
+  border-radius: 8px 8px 4px 4px;
+  padding: 10px;
+  background: #2c3034;
+}
+
+/* 银色整体膜片（导航 + 数字同面） */
+.n1100-face {
+  margin-top: 12px;
+  background: linear-gradient(180deg, #d3d6cf 0%, #b6bab2 100%);
+  border-radius: 12px;
+  padding: 10px;
+  box-shadow: inset 0 2px 4px rgba(255, 255, 255, 0.5), inset 0 -2px 4px rgba(0, 0, 0, 0.18);
+}
+
+/* 3×2 面板导航 */
+.n1100-nav {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  grid-template-rows: repeat(2, 34px);
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.n1100-nav .pbtn {
+  background: linear-gradient(180deg, #c8ccc5 0%, #a7aba4 100%);
+  color: #3c4140;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.nk-power {
+  color: #c14c42 !important;
+}
+
+/* Navi 蓝线键（空白键面，蓝线由伪元素给出） */
+.nk-ok::after {
+  content: '';
+  width: 20px;
+  height: 3px;
+  border-radius: 2px;
+  background: #2f7fc2;
+  box-shadow: 0 0 3px rgba(47, 127, 194, 0.7);
+}
+
+.n1100-keypad {
+  gap: 6px;
+  margin-top: 0;
+}
+
+.n1100-digit {
+  height: 38px;
+  border-radius: 6px;
+  background: linear-gradient(180deg, #c8ccc5 0%, #a7aba4 100%) !important;
+}
+
+.n1100-digit .key-digit {
+  color: #33383a;
+  font-size: 15px;
+}
+
+.n1100-digit .key-sub {
+  color: rgba(51, 56, 58, 0.65);
+  font-size: 8px;
+}
+
+/* ---------- Nokia 3310（n3310）波浪键机壳 ---------- */
+
+/* 机顶圆形电源 */
+.n3310-power {
+  position: absolute;
+  top: -9px;
+  left: 50%;
+  translate: -50% 0;
+  width: 26px;
+  height: 16px;
+  border-radius: 8px 8px 0 0;
+  background: var(--body-edge);
+  cursor: pointer;
+  box-shadow: inset 2px 0 2px rgba(255, 255, 255, 0.12);
+}
+
+/* 点状听筒：一排小圆孔 */
+.earpiece-dots {
+  width: 64px;
+  height: 7px;
+  margin: 0 auto 8px;
+  background: radial-gradient(circle, #0c0f12 0 2.2px, transparent 2.6px) 0 0 / 11px 7px repeat-x;
+}
+
+.phone.n3310 {
+  width: min(340px, 100%);
+  border-radius: 28px 28px 42px 42px;
+  padding: 20px 18px 26px;
+}
+
+.phone.n3310 .screen-bezel {
+  border-radius: 10px 10px 4px 4px;
+  padding: 12px;
+  background: #18202a;
+}
+
+/* 三键 Navi 行 */
+.n3310-nav {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+/* 三角键（左 C / 右上 / 右下） */
+.tri {
+  width: 46px;
+  height: 40px;
+  background: linear-gradient(180deg, #d6d9d4 0%, #aeb2ac 100%);
+  color: #3c4140;
+  font-size: 16px;
+  font-weight: 700;
+  border-radius: 10px;
+}
+
+.tri-c {
+  clip-path: polygon(50% 0, 100% 100%, 0 100%);
+  border-radius: 0;
+}
+
+/* 右侧连体双热区：外形一块，上下两个按钮 */
+.tri-r {
+  width: 46px;
+  height: 40px;
+  position: relative;
+  background: linear-gradient(180deg, #d6d9d4 0%, #aeb2ac 100%);
+  clip-path: polygon(0 0, 100% 0, 50% 100%);
+  border-radius: 0;
+}
+
+.tri-r .tri {
+  position: absolute;
+  width: 100%;
+  height: 50%;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+}
+
+.tri-up {
+  top: 0;
+  left: 0;
+}
+
+.tri-down {
+  bottom: 0;
+  left: 0;
+}
+
+/* 银胶囊 Navi 键（蓝线） */
+.navi-key {
+  width: 66px;
+  height: 34px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, #e2e5e0 0%, #b4b8b2 100%);
+  position: relative;
+}
+
+.navi-key::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  translate: -50% -50%;
+  width: 26px;
+  height: 4px;
+  border-radius: 2px;
+  background: #2f93cf;
+  box-shadow: 0 0 4px rgba(47, 147, 207, 0.7);
+}
+
+.n3310-keypad {
+  gap: 8px 12px;
+  margin-top: 14px;
+}
+
+.n3310-keypad .digit-key {
+  border-radius: 999px;
+  height: 40px;
+  background: linear-gradient(180deg, #d6d9d4 0%, #aeb2ac 100%) !important;
+}
+
+.n3310-keypad .key-digit {
+  color: #3c4140;
+  font-size: 15px;
+}
+
+.n3310-keypad .key-sub {
+  color: rgba(60, 65, 64, 0.7);
+  font-size: 8px;
+}
+
+/* 波浪形排布：3310 键盘的弧形三列（rotate/translate 独立属性，不干扰按压位移） */
+.n3310-keypad .pbtn:nth-child(3n+1) {
+  rotate: -5deg;
+  translate: 0 4px;
+}
+
+.n3310-keypad .pbtn:nth-child(3n+2) {
+  translate: 0 -3px;
+}
+
+.n3310-keypad .pbtn:nth-child(3n) {
+  rotate: 5deg;
+  translate: 0 4px;
+}
+
+/* ---------- S60 智能直板机壳 ---------- */
+
+.phone.s60 {
+  width: min(440px, 100%);
+  border-radius: 24px 24px 34px 34px;
+  padding: 24px 20px 26px;
+}
+
+.phone.s60 .phone-power {
+  top: 58px;
+  right: -7px;
+  width: 8px;
+  height: 46px;
+}
+
+.phone.s60 .earpiece {
+  width: 56px;
+  height: 6px;
+  margin-bottom: 9px;
+}
+
+.phone.s60 .brand {
+  font-size: 10px;
+  letter-spacing: 0.34em;
+  margin-bottom: 8px;
+}
+
+.phone.s60 .screen-bezel {
+  border-radius: 10px;
+  padding: 10px;
+  background: #0b0d10;
+}
+
+.phone.s60 .nav-pad {
+  grid-template-columns: repeat(3, 40px);
+  grid-template-rows: repeat(3, 34px);
+}
+
+/* 摇杆观感：中央凸起 */
+.phone.s60 .nav-ok {
+  background: radial-gradient(circle at 35% 30%, #5d6672 0%, var(--btn) 70%);
+  font-size: 11px;
+}
+
+.phone.s60 .soft {
+  height: 32px;
+}
+
+.phone.s60 .soft-label {
+  font-size: 13px;
+}
+
+.phone.s60 .keypad {
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.phone.s60 .digit-key {
+  height: 36px;
+  border-radius: 8px;
+}
+
+.phone.s60 .key-digit {
+  font-size: 14px;
+}
+
+.phone.s60 .key-sub {
+  font-size: 7px;
+}
+
+.phone.s60 .c-key {
+  min-width: 48px;
+  height: 26px;
+}
+
+/* ---------- HTC Dream（G1）侧滑全键盘机壳 ---------- */
+
+.phone.g1 {
+  width: min(520px, 100%);
+  /* G1 标志性的「下巴」弧度 */
+  border-radius: 34px 34px 84px 84px;
+  padding: 22px 18px 26px;
+}
+
+.phone.g1 .phone-power {
+  top: 50px;
+  right: -7px;
+  width: 8px;
+  height: 44px;
+}
+
+.phone.g1 .earpiece {
+  width: 60px;
+  height: 6px;
+  margin-bottom: 8px;
+}
+
+.phone.g1 .brand {
+  font-size: 10px;
+  letter-spacing: 0.3em;
+  margin-bottom: 8px;
+}
+
+.phone.g1 .screen-bezel {
+  border-radius: 8px;
+  padding: 12px;
+  background: #0b0c0e;
+}
+
+/* 面板控制行：呼叫 / 主页 / 轨迹球 / 菜单 / 返回 / 挂断 */
+.g1-controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.g1-key {
+  width: 46px;
+  height: 36px;
+  border-radius: 9px;
+  font-size: 16px;
+}
+
+/* 绿色呼叫键 / 红色挂断键（G1 的经典配色） */
+.g1-call {
+  background: linear-gradient(180deg, #63a53f 0%, #3f7024 100%);
+}
+
+.g1-end {
+  background: linear-gradient(180deg, #b0483f 0%, #7c2c26 100%);
+}
+
+/* 轨迹球区：五向 */
+.g1-trackpad {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(3, 30px);
+  grid-template-rows: repeat(3, 24px);
+  gap: 1px;
+}
+
+.g1-track-up { grid-area: 1 / 2; }
+.g1-track-left { grid-area: 2 / 1; }
+.g1-track-right { grid-area: 2 / 3; }
+.g1-track-down { grid-area: 3 / 2; }
+
+/* 轨迹球本体：白色球面，中央凸起 */
+.g1-track-ball {
+  grid-area: 2 / 2;
+  width: 38px;
+  height: 38px;
+  margin: -7px 0 0 -4px;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 34% 30%, #ffffff 0%, #c9cdd2 55%, #8f959c 100%);
+  border: 1px solid rgba(0, 0, 0, 0.45);
+  box-shadow:
+    0 2px 4px rgba(0, 0, 0, 0.45),
+    inset 0 -3px 5px rgba(0, 0, 0, 0.25);
+}
+
+/* 侧滑全键盘（展开陈列，还原 G1 下巴） */
+.g1-qwerty {
+  margin-top: 12px;
+  padding: 10px 8px 8px;
+  border-radius: 10px;
+  background: linear-gradient(180deg, #2c2f34 0%, #212327 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.14),
+    inset 0 -2px 4px rgba(0, 0, 0, 0.5);
+}
+
+.g1-qrow {
+  display: flex;
+  justify-content: center;
+  gap: 5px;
+  margin-bottom: 5px;
+}
+
+.g1-qrow:last-child {
+  margin-bottom: 0;
+}
+
+.g1-qkey {
+  width: 32px;
+  height: 27px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-family: ui-monospace, monospace;
+  background: linear-gradient(180deg, #4a4e55 0%, #34373d 100%);
+}
+
+/* 主行（asdfghjkl）略作区分 */
+.g1-qrow-home {
+  background: linear-gradient(180deg, #565a62 0%, #3b3e44 100%);
+}
+
+.g1-qspace {
+  flex: 1;
+  max-width: 170px;
+}
+
+/* ---------- 诺基亚 Lumia 800（WP7）一体聚碳酸酯触屏机壳 ---------- */
+
+.phone.wp7 {
+  width: min(440px, 100%);
+  /* 一体成型聚碳酸酯：四角收弧更紧，无键盘区 */
+  border-radius: 38px 38px 46px 46px;
+  padding: 40px 20px 26px;
+}
+
+.phone.wp7 .phone-power {
+  top: 120px;
+  right: -7px;
+  width: 7px;
+  height: 46px;
+}
+
+.phone.wp7 .earpiece {
+  width: 52px;
+  height: 6px;
+  margin-bottom: 6px;
+}
+
+.phone.wp7 .brand {
+  font-size: 10px;
+  letter-spacing: 0.5em;
+  margin-bottom: 8px;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+/* AMOLED：窄边黑玻璃，屏幕几乎顶到边 */
+.phone.wp7 .screen-bezel {
+  border-radius: 4px;
+  padding: 8px;
+  background: #050607;
+}
+
+/* 屏幕下方黑玻璃条：三枚电容键（返回 / Windows 开始 / 搜索） */
+.wp7-capacitive {
+  display: flex;
+  align-items: center;
+  justify-content: space-evenly;
+  margin-top: 10px;
+  padding: 12px 24px 6px;
+  background: linear-gradient(180deg, #08090b 0%, #101216 100%);
+  border-radius: 8px 8px 16px 16px;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    inset 0 -2px 5px rgba(0, 0, 0, 0.6);
+}
+
+/* 电容键：非实体键，无凸起 —— 扁平微光区域，按下时亮起 */
+.wp7-cap {
+  width: 72px;
+  height: 42px;
+  border-radius: 10px;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.wp7-cap:active,
+.wp7-cap.pressed {
+  transform: none;
+  box-shadow: none;
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.wp7-cap-icon {
+  width: 26px;
+  height: 26px;
+  display: block;
+}
+
+/* Windows 开始旗：白底四格 */
+.wp7-flag {
+  fill: currentColor;
+}
+
+/* ---------- 苹果 iPhone 2G（iphone）机壳 ---------- */
+
+/* 正面整块黑玻璃；内圈两层银灰金属包边表现铝合金边框 */
+.phone.iphone {
+  width: min(380px, 100%);
+  border-radius: 26px;
+  padding: 64px 24px 30px;
+  background: linear-gradient(160deg, #101113 0%, #000000 60%);
+  box-shadow:
+    0 24px 60px rgba(0, 0, 0, 0.55),
+    inset 0 0 0 2px #93989e,
+    inset 0 0 0 4px #35373b,
+    inset 0 1px 2px rgba(255, 255, 255, 0.18);
+}
+
+/* 电源键：机顶右部（真机为顶部边框上的长条键） */
+.phone.iphone .phone-power {
+  top: -7px;
+  right: 64px;
+  width: 62px;
+  height: 7px;
+  border-radius: 4px 4px 0 0;
+  background: var(--body-edge);
+  box-shadow: inset 0 2px 2px rgba(0, 0, 0, 0.4);
+}
+
+/* 听筒横缝 + 左侧距离感应器（暗底上几乎隐没） */
+.iphone-top {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 26px;
+  margin-bottom: 14px;
+}
+.iphone-earpiece {
+  width: 76px;
+  height: 8px;
+  background: #17191c;
+  border-radius: 999px;
+  box-shadow: inset 0 2px 3px rgba(0, 0, 0, 0.9);
+}
+.iphone-sensor {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #14161a;
+}
+
+/* 屏幕与玻璃齐平：无 bezel 包边 */
+.phone.iphone .screen-bezel {
+  background: #000000;
+  border-radius: 0;
+  padding: 0;
+  box-shadow: none;
+}
+.phone.iphone .screen-bezel canvas {
+  border-radius: 0;
+}
+
+/* 屏幕下方唯一的圆形 Home 键 */
+.iphone-controls {
+  display: flex;
+  justify-content: center;
+  margin-top: 28px;
+}
+.pbtn.iphone-home {
+  width: 58px;
+  height: 58px;
+  border-radius: 50%;
+  background: linear-gradient(180deg, #26282b 0%, #0b0c0e 100%);
+  border: 1px solid #000000;
+  box-shadow:
+    0 2px 5px rgba(0, 0, 0, 0.5),
+    inset 0 1px 1px rgba(255, 255, 255, 0.16);
+}
+.pbtn.iphone-home:active {
+  transform: translateY(1px);
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.5),
+    inset 0 2px 5px rgba(0, 0, 0, 0.8);
+}
+
+/* 图例 */
+
+.legend {
+  margin-top: 28px;
+  max-width: 560px;
+  text-align: center;
+}
+
+.legend-title {
+  color: var(--ink-dim);
+  font-size: 13px;
+  margin-bottom: 10px;
+}
+
+.legend-grid {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px 18px;
+  font-size: 12px;
+  color: var(--ink-dim);
+}
+
+.legend-item kbd {
+  background: var(--card);
+  border: 1px solid var(--card-edge);
+  border-radius: 5px;
+  padding: 2px 7px;
+  font-family: ui-monospace, monospace;
+  color: var(--ink);
+  margin-right: 4px;
+}
+
+.legend-hint {
+  margin-top: 14px;
+  color: var(--accent-dim);
+  font-size: 12px;
+}
+
+/* ---------- 语言 / 主题切换控件 ---------- */
+
+.gallery-controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin: 6px 0 22px;
+}
+
+.view-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.vc-seg {
+  display: inline-flex;
+  border: 1px solid var(--card-edge);
+  border-radius: 999px;
+  overflow: hidden;
+  background: var(--card);
+}
+
+.vc {
+  background: none;
+  border: none;
+  color: var(--ink-dim);
+  font-family: inherit;
+  font-size: 12px;
+  letter-spacing: 0.05em;
+  padding: 5px 13px;
+  cursor: pointer;
+  transition: color 0.15s ease, background 0.15s ease;
+}
+
+.vc:not(.on):hover {
+  color: var(--ink);
+}
+
+.vc.on {
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-weight: 700;
+}
+
+/* ---------- 置顶按钮 ---------- */
+
+.to-top {
+  position: fixed;
+  right: 20px;
+  bottom: 24px;
+  z-index: 40;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 1px solid var(--card-edge);
+  background: var(--card);
+  color: var(--accent);
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.45);
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(10px);
+  transition: opacity 0.2s ease, transform 0.2s ease, visibility 0.2s, border-color 0.15s ease;
+}
+
+.to-top.show {
+  opacity: 1;
+  visibility: visible;
+  transform: none;
+}
+
+.to-top:hover {
+  border-color: var(--accent-dim);
+}
+
+.to-top:active {
+  transform: translateY(1px);
+}
+
+@media (max-width: 520px) {
+  .gallery-header h1 {
+    font-size: 32px;
+  }
+  .device-card {
+    grid-template-columns: 1fr;
+  }
+  .device-card-year {
+    border-right: none;
+    border-bottom: 1px dashed var(--card-edge);
+    padding-bottom: 8px;
+  }
+  .to-top {
+    right: 14px;
+    bottom: 18px;
+  }
+}
+
+/* ---------- 情景编排设置页 ---------- */
+.settings-page {
+  max-width: 920px;
+  margin: 0 auto;
+  padding: 20px 16px 60px;
+}
+.settings-topbar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 8px;
+}
+.settings-topbar h1 {
+  font-size: 22px;
+  margin: 0;
+}
+.settings-desc {
+  color: var(--muted);
+  font-size: 13px;
+  margin: 0 0 18px;
+  line-height: 1.6;
+}
+.settings-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+.stab {
+  padding: 7px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--edge);
+  background: transparent;
+  color: var(--fg);
+  font-size: 13px;
+  cursor: pointer;
+}
+.stab.active {
+  background: var(--accent);
+  color: var(--accent-ink);
+  border-color: var(--accent);
+}
+.stab.disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+.settings-sections {
+  display: flex;
+  gap: 6px;
+  border-bottom: 1px solid var(--edge);
+  margin-bottom: 18px;
+}
+.sec-tab {
+  padding: 8px 14px;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--muted);
+  font-size: 13px;
+  cursor: pointer;
+}
+.sec-tab.active {
+  color: var(--fg);
+  border-bottom-color: var(--accent);
+}
+.settings-body {
+  min-height: 200px;
+}
+.editor .ed-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  margin-bottom: 14px;
+}
+.editor .ed-table th,
+.editor .ed-table td {
+  text-align: left;
+  padding: 7px 8px;
+  border-bottom: 1px solid var(--edge);
+  vertical-align: middle;
+}
+.editor .ed-table th {
+  color: var(--muted);
+  font-weight: 500;
+  font-size: 12px;
+}
+.editor .ed-text {
+  max-width: 260px;
+  word-break: break-all;
+}
+.editor .ed-empty {
+  text-align: center;
+  color: var(--muted);
+  padding: 18px;
+}
+.editor .ed-actions {
+  display: flex;
+  gap: 6px;
+}
+.ed-add {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.ed-add input,
+.ed-add select {
+  padding: 6px 8px;
+  background: var(--input-bg);
+  border: 1px solid var(--edge);
+  color: var(--fg);
+  border-radius: 4px;
+  font-size: 13px;
+  min-width: 90px;
+}
+.ed-add button {
+  padding: 6px 14px;
+  background: var(--accent);
+  color: var(--accent-ink);
+  border: none;
+  border-radius: 4px;
+  font-size: 13px;
+  cursor: pointer;
+}
+.del-btn {
+  background: transparent;
+  color: var(--danger);
+  border: 1px solid var(--edge);
+  border-radius: 4px;
+  padding: 3px 8px;
+  font-size: 12px;
+  cursor: pointer;
+}
+.ed-hint {
+  color: var(--muted);
+  font-size: 12px;
+  margin-top: 10px;
+}
+/* 情景编排：右下悬浮入口（置顶按钮上方） */
+.scenario-float {
+  position: fixed;
+  right: 20px;
+  bottom: 80px;
+  z-index: 40;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 1px solid var(--card-edge);
+  background: var(--card);
+  color: var(--accent);
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.45);
+}
+
+.scenario-float:hover {
+  border-color: var(--accent-dim);
+}
+
+/* 手机端与 .to-top 对齐（须在基础规则之后，避免被源顺序覆盖） */
+@media (max-width: 520px) {
+  .scenario-float {
+    right: 14px;
+    bottom: 74px;
+  }
+}
+
+/* ---------- 目录（右侧导轨 / 窄屏悬浮抽屉） ---------- */
+
+.toc-item {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  background: none;
+  border: none;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  padding: 5px 10px;
+  border-radius: 8px;
+  color: var(--ink-dim);
+}
+
+.toc-item:hover {
+  color: var(--ink);
+}
+
+.toc-item.on {
+  color: var(--accent);
+}
+
+.toc-year {
+  font-family: ui-monospace, monospace;
+  font-size: 11px;
+}
+
+.toc-name {
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+/* 导轨默认隐藏，宽屏才展示（避免盖住卡片） */
+.toc-rail {
+  display: none;
+}
+
+@media (min-width: 1280px) {
+  .toc-rail {
+    position: fixed;
+    right: 24px;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 30;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 8px;
+    border: 1px solid var(--card-edge);
+    border-radius: 12px;
+    background: color-mix(in srgb, var(--card) 82%, transparent);
+    backdrop-filter: blur(6px);
+  }
+
+  .toc-float {
+    display: none;
+  }
+}
+
+.toc-float {
+  position: fixed;
+  right: 20px;
+  bottom: 136px;
+  z-index: 40;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 1px solid var(--card-edge);
+  background: var(--card);
+  color: var(--accent);
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.45);
+}
+
+.toc-float:hover {
+  border-color: var(--accent-dim);
+}
+
+.toc-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 45;
+}
+
+.toc-drawer {
+  position: fixed;
+  right: 14px;
+  bottom: 192px;
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px;
+  border: 1px solid var(--card-edge);
+  border-radius: 12px;
+  background: var(--card);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
+}
+
+@media (max-width: 520px) {
+  .toc-float {
+    right: 14px;
+    bottom: 130px;
+  }
+
+  .toc-drawer {
+    bottom: 186px;
+  }
+}
+
+/* ============ BlackBerry Bold 9000 ============ */
+
+.phone.blackberry {
+  width: min(620px, 100%);
+  border-radius: 22px;
+  padding: 14px 18px 18px;
+  border: 2px solid #c9ced4;
+  background:
+    linear-gradient(180deg, #2a2b2f 0%, var(--body) 18%, var(--body-edge) 100%);
+  box-shadow:
+    0 24px 60px rgba(0, 0, 0, 0.55),
+    inset 0 1px 0 rgba(255, 255, 255, 0.35),
+    inset 0 -2px 5px rgba(0, 0, 0, 0.5);
+}
+
+/* 顶部：LED + 静音键 */
+.bb-top-row {
+  position: relative;
+  height: 8px;
+  margin-bottom: 10px;
+}
+
+.bb-led {
+  position: absolute;
+  right: 4px;
+  top: 1px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #3a0c0c;
+  opacity: 0.5;
+}
+
+.bb-led[data-state='red'] {
+  background: #ff1a1a;
+  opacity: 1;
+  box-shadow: 0 0 7px rgba(255, 26, 26, 0.9);
+  animation: bb-blink 1.4s steps(1, end) infinite;
+}
+
+@keyframes bb-blink {
+  0%, 55% { opacity: 1; }
+  56%, 100% { opacity: 0.12; }
+}
+
+.bb-mute {
+  position: absolute;
+  left: 50%;
+  top: -2px;
+  transform: translateX(-50%);
+  width: 52px;
+  height: 7px;
+  border-radius: 4px;
+  background: linear-gradient(180deg, #3c3d42 0%, #16171a 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  cursor: pointer;
+}
+
+/* 电源/锁定键（真机 Bold 9000 顶部右上角独立键） */
+.bb-power {
+  position: absolute;
+  right: 16px;
+  top: -2px;
+  width: 26px;
+  height: 7px;
+  border-radius: 4px;
+  background: linear-gradient(180deg, #3c3d42 0%, #16171a 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  cursor: pointer;
+}
+
+/* 听筒格栅 */
+.bb-speaker {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 8px;
+}
+
+.bb-speaker-grille {
+  width: 130px;
+  height: 6px;
+  border-radius: 4px;
+  background:
+    repeating-linear-gradient(90deg, #0a0a0b 0 3px, #34353a 3px 5px);
+}
+
+.phone.blackberry .screen-bezel {
+  padding: 7px;
+  border-radius: 8px;
+  background: linear-gradient(180deg, #dfe3e8 0%, #aab0b7 100%);
+  box-shadow:
+    inset 0 1px 2px rgba(0, 0, 0, 0.5),
+    0 1px 0 rgba(255, 255, 255, 0.25);
+}
+
+.phone.blackberry .screen-bezel canvas {
+  border-radius: 3px;
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+/* 两侧快捷键 */
+.bb-side {
+  position: absolute;
+  top: 150px;
+  display: flex;
+  flex-direction: column;
+  gap: 26px;
+}
+
+.bb-side-l { left: -7px; }
+.bb-side-r { right: -7px; gap: 34px; }
+
+.bb-side-key {
+  width: 8px;
+  height: 44px;
+  border-radius: 4px;
+  background: linear-gradient(180deg, #3c3d42 0%, #141518 100%);
+  box-shadow: inset -1px 0 2px rgba(0, 0, 0, 0.5);
+  cursor: pointer;
+}
+
+.bb-side-key.bb-vol {
+  height: 64px;
+}
+
+/* 导航条 */
+.bb-nav {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(6px, 2.4%, 18px);
+  margin-top: 12px;
+}
+
+.bb-nav-key {
+  width: 48px;
+  flex-shrink: 1;
+  min-width: 0;
+  height: 36px;
+  border-radius: 9px;
+  background: linear-gradient(180deg, #34353a 0%, #1a1b1e 100%);
+  color: #d8dade;
+  font-size: 16px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18);
+}
+
+.bb-call {
+  background: linear-gradient(180deg, #5fa53c 0%, #3a6f21 100%);
+}
+
+.bb-end {
+  background: linear-gradient(180deg, #b0463e 0%, #792b25 100%);
+}
+
+.bb-bbmark {
+  width: 24px;
+  height: 16px;
+}
+
+.bb-back-icon {
+  width: 18px;
+  height: 14px;
+}
+
+/* 轨迹球 */
+.bb-ball {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(3, 26px);
+  grid-template-rows: repeat(3, 20px);
+  gap: 1px;
+}
+
+.bb-ball-up { grid-area: 1 / 2; }
+.bb-ball-left { grid-area: 2 / 1; }
+.bb-ball-right { grid-area: 2 / 3; }
+.bb-ball-down { grid-area: 3 / 2; }
+
+.bb-ball-press {
+  grid-area: 2 / 2;
+  width: 34px;
+  height: 34px;
+  margin: -7px 0 0 -4px;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 34% 30%, #fbfbfb 0%, #c6cace 55%, #888e95 100%);
+  box-shadow:
+    0 2px 4px rgba(0, 0, 0, 0.5),
+    inset 0 -2px 4px rgba(0, 0, 0, 0.25);
+}
+
+/* QWERTY */
+.bb-qwerty {
+  margin-top: 12px;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+}
+
+.bb-qrow {
+  display: flex;
+  width: 100%;
+  gap: 4px;
+}
+
+.bb-qrow-home {
+  margin-left: min(26px, 5%);
+}
+
+.bb-qrow-alt {
+  gap: 4px;
+}
+
+.bb-qkey {
+  width: 50px;
+  flex-shrink: 1;
+  min-width: 0;
+  height: 32px;
+  border-radius: 6px;
+  background: linear-gradient(180deg, #2e2f33 0%, #17181b 100%);
+  color: #e3e5e8;
+  font-size: 13px;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.14),
+    0 1px 1px rgba(0, 0, 0, 0.4);
+}
+
+.bb-qdecor {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #8a9098;
+  font-size: 12px;
+  background: linear-gradient(180deg, #232428 0%, #121316 100%);
+}
+
+.bb-qback {
+  width: 60px;
+}
+
+.bb-qspace {
+  width: 300px;
+}
+
+.bb-qdot {
+  width: 60px;
+}
+
+.bb-backspace {
+  width: 20px;
+  height: 15px;
+}
+
+/* 窄屏：机身收缩后外凸侧键隐藏，避免横向溢出 */
+@media (max-width: 860px) {
+  .bb-side { display: none; }
+}

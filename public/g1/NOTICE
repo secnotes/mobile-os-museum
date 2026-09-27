@@ -1,0 +1,56 @@
+Android 1.0 真机资源归属说明
+================================
+
+本目录下的资源用于「掌上博物馆」HTC Dream（T-Mobile G1）展品的视觉/声音还原，
+分两类来源：
+
+1. AOSP 1.0 原始资源（Apache License 2.0）
+   ------------------------------------------
+   来源：Android Open Source Project @ 2008-10-21 "Initial Contribution"
+   commit 54b6cfa9a9e5b861a9930af873580d6dc20f773c
+   (https://android.googlesource.com/platform/frameworks/base)
+
+   - fonts/DroidSans.ttf, DroidSans-Bold.ttf, DroidSansFallback.ttf
+   - sounds/ringtones/Ring_Classic_01-05.ogg
+   - sounds/ringtones/Ring_Digital_01-05.ogg
+   - sounds/ringtones/Ring_Synth_01-05.ogg
+   - sounds/alarms/Alarm_Beep_01-03.ogg, Alarm_Buzzer.ogg,
+     Alarm_Classic.ogg, Alarm_Rooster_01-02.ogg
+   - sounds/notifications/F1_New_SMS.ogg, F1_New_MMS.ogg, F1_MissedCall.ogg
+   - sounds/ui/Effect_Tick.ogg
+   - fw/default_wallpaper.jpg
+   - fw/clock_dial.png, clock_hour.png, clock_minute.png
+   - fw/stat_sys_battery_{0,10,20,40,60,80,100}.png
+   - fw/stat_sys_signal_{0..4}.png
+   - fw/stat_sys_ringer_silent.png
+   - fw/stat_notify_sms.png, stat_notify_chat.png, stat_notify_missed_call.png
+   - fw/btn_check_on.png, btn_check_off.png
+   - fw/btn_code_lock_default.png
+   - fw/ic_lock_idle_lock.png
+   - fw/ic_menu_close_clear_cancel.png
+   - icons/AlarmClock.png, Browser.png, Calculator.png, Calendar.png,
+     Camera.png, Contacts.png, Dialer.png, IM.png, Messaging.png,
+     Music.png, Settings.png
+
+   许可：Apache License 2.0（http://www.apache.org/licenses/LICENSE-2.0）
+   原始 NOTICE 与 LICENSE 见 AOSP 仓库。
+
+2. 真机系统 APK 提取的 launcher 图标（商标美术）
+   ------------------------------------------------
+   来源：真机 HTC Dream / T-Mobile G1 系统镜像
+   (GitHub: MarcioGames-pixel/T-Mobile-G1-QEMU 中的系统 APK)
+
+   - icons/Gmail.png    (Gmail.apk)
+   - icons/Maps.png     (Maps.apk)
+   - icons/Market.png   (Vending.apk / com.android.vending)
+   - icons/YouTube.png  (YouTube.apk)
+   - icons/Amazon.png   (com.amazon.mp3.apk)
+
+   这些图标为 Google LLC / Amazon.com, Inc. 的商标美术，从公开真机存档提取，
+   仅供本非商业性「手机博物馆」展品的还原展示使用。相关商标权归各自所有者。
+
+仍为近似（非真机原件）
+   --------------------
+   - 开机动画 "ANDROID" 字标（AOSP 无此字标原件，为像素近似）
+   - T-Mobile 品牌闪屏（近似）
+   - DTMF / 回铃音 / 通话音（WebAudio 合成，频率符合标准）
