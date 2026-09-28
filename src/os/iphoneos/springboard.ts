@@ -2,13 +2,16 @@ import type { Screen } from '../../hal/screen'
 import { C } from './palette'
 import { F_BOLD } from './fonts'
 import { badge as drawBadge } from './widgets'
-import { scrim } from './graphics'
+import { scrim, gloss } from './graphics'
+import { assets } from './assets'
 import type { IconDrawer } from './icons'
 
 export interface AppEntry {
   id: string
   name: string
   icon: IconDrawer
+  /** 真机 PNG 图标名（app id）；assets 已加载时优先 blit PNG，否则走 icon() 程序化兜底 */
+  iconPng?: string
   /** 角标数字（0 = 不显示） */
   badge?: () => number
 }
@@ -21,10 +24,10 @@ export interface PressedHit {
 
 export const GRID_X = [16, 92, 168, 244]
 export const GRID_Y = [30, 114, 198]
-const ICON = 57
-const DOCK_X = [28, 100, 172, 244]
-const DOCK_ICON = 50
-const DOCK_Y = 399
+export const ICON = 57
+export const DOCK_X = [28, 100, 172, 244]
+export const DOCK_ICON = 50
+export const DOCK_Y = 399
 
 /**
  * Springboard：黑底（1.0 无壁纸设置）、3×4 网格 + 页点 + 网纹 Dock。
@@ -42,7 +45,7 @@ export function drawSpringboard(
     const col = i % 4
     const row = (i / 4) | 0
     const x = GRID_X[col], y = GRID_Y[row]
-    app.icon(s, x, y, ICON)
+    drawAppIcon(s, app, x, y, ICON)
     s.textCenter(x + (ICON >> 1), y + ICON + 3, app.name, {
       size: 12, font: F_BOLD(12), color: C.WHITE, maxWidth: 72,
     })
@@ -60,7 +63,7 @@ export function drawSpringboard(
   s.fillRect(10, 391, 300, 1, C.MESH_L)
   dock.forEach((app, i) => {
     const x = DOCK_X[i]!
-    app.icon(s, x, DOCK_Y, DOCK_ICON)
+    drawAppIcon(s, app, x, DOCK_Y, DOCK_ICON)
     s.textCenter(x + (DOCK_ICON >> 1), 455, app.name, {
       size: 12, font: F_BOLD(12), color: C.WHITE, maxWidth: 74,
     })
@@ -74,7 +77,20 @@ export function drawSpringboard(
   })
 }
 
-/** 圆角矩形网纹填充（2×2 深浅棋盘模拟真机 Dock 织纹） */
+/**
+ * 绘制 app 图标：真机 PNG 优先（assets.icon，圆角与 gloss 已烘焙在 PNG 内，平滑缩放）；
+ * 否则走程序化 IconDrawer，并在其上叠 gloss 玻璃高光（顶部 42% 亮带，真机 1.0 图标共性）。
+ */
+function drawAppIcon(s: Screen, app: AppEntry, x: number, y: number, u: number) {
+  const png = app.iconPng ? assets.icon(app.iconPng) : undefined
+  if (png) {
+    s.blit(png, x, y, { w: u, h: u, smooth: true })
+    return
+  }
+  app.icon(s, x, y, u)
+  const r = Math.max(1, Math.round((u / 57) * 12))
+  gloss(s, x, y, u, u, r, C.WHITE, 4)
+}
 function dockMesh(s: Screen, x: number, y: number, w: number, h: number, r: number) {
   for (let dy = 0; dy < h; dy++) {
     let inset = 0

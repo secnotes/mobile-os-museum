@@ -8,10 +8,14 @@ import { F_BOLD, F_REG } from './fonts'
 import { rr, rrGrad, rrStroke, disc, scrim } from './graphics'
 import { drawPhotoArt } from './apps/photo-art'
 import { statusBar, clockString } from './statusbar'
-import { drawSpringboard, springboardHit, type AppEntry, type PressedHit } from './springboard'
+import {
+  drawSpringboard, springboardHit, GRID_X, GRID_Y, DOCK_X, DOCK_Y,
+  type AppEntry, type PressedHit,
+} from './springboard'
 import { LockScreen } from './lockscreen'
 import { drawBoot, BOOT_TOTAL } from './boot'
 import { RINGTONES, SMS_TONE } from './ringtones'
+import { assets } from './assets'
 import { ipStrings, type IpStrings } from './strings'
 import {
   iconText, iconCalendar, iconPhotos, iconCamera, iconYoutube, iconStocks,
@@ -69,7 +73,7 @@ function seedPhotos(now: number): PhotoMeta[] {
   }))
 }
 
-type State = 'off' | 'boot' | 'lock' | 'home' | 'app' | 'ringing' | 'incall' | 'sleep' | 'poweroff'
+type State = 'off' | 'boot' | 'lock' | 'home' | 'app' | 'ringing' | 'incall' | 'sleep' | 'poweroff' | 'zoom'
 
 interface Pending { tel: string; name: string | undefined }
 
@@ -117,6 +121,15 @@ class IPhoneOS implements PhoneOS {
   private answerLocker = new LockScreen()
   private powerLocker = new LockScreen()
   private bridge: Bridge
+
+  // 应用打开/关闭 zoom 过渡
+  private static readonly ZOOM_DUR = 0.3
+  private zoomSnap: HTMLCanvasElement | null = null
+  private zoomDir: 'open' | 'close' = 'open'
+  private zoomT = 0
+  private zoomRect = { x: 131, y: 211, u: 57 }
+  /** open 完成后待启动的 app id（过渡期间不启动，避免 app 帧覆盖过渡画面） */
+  private zoomLaunchId: string | null = null
   private appCache = new Map<string, MiniApp>()
   private appQuiet = false
   /** 主屏当前按下的图标（按下变暗，松手启动——真机 1.0 手感） */
@@ -135,7 +148,7 @@ class IPhoneOS implements PhoneOS {
   private callOverlay: null | 'keys' | 'contacts' = null
 
   constructor(private deps: OSDeps) {
-    this.runtime = new AppRuntime(deps, () => this.onAppExit())
+    this.runtime = new AppRuntime(deps, (snapshot, app) => this.onAppExit(snapshot, app))
     this.bridge = this.makeBridge()
   }
 
@@ -160,6 +173,8 @@ class IPhoneOS implements PhoneOS {
 
   private async init() {
     await this.deps.battery.init()
+    // 预加载真机 PNG 资源（开机 Apple logo / app 图标）；缺图静默回落程序化绘制
+    void assets.loadAll()
     this.contactsArr = (await this.deps.store.get<Contact[]>('contacts')) ?? [...SEED_CONTACTS]
     this.threadsArr = (await this.deps.store.get<SmsThread[]>('sms:threads')) ?? seedThreads(Date.now())
     this.callLogArr = (await this.deps.store.get<CallEntry[]>('calllog')) ?? []
@@ -249,6 +264,8 @@ class IPhoneOS implements PhoneOS {
 
   private frame(dt: number) {
     this.tSecs += dt
+    // 应用打开/关闭 zoom 过渡（独占帧，不被自动锁定/闹钟打断）
+    if (this.state === 'zoom') { this.stepZoom(dt); return }
     // 自动锁定（真机 Auto-Lock）：主屏/应用内无操作超时 → 睡眠
     if (
       this.setFlags.autoLockMin > 0 &&
@@ -320,6 +337,7 @@ class IPhoneOS implements PhoneOS {
 
   private onInput(key: string, repeat = false) {
     this.lastAct = this.tSecs
+    if (this.state === 'zoom') return
     if (key === 'power') {
       // 真机：长按电源 → slide to power off；短按 → 睡眠/唤醒
       if (repeat) {
@@ -364,7 +382,7 @@ class IPhoneOS implements PhoneOS {
 
   private onTap(x: number, y: number) {
     this.lastAct = this.tSecs
-    if (this.state === 'sleep' || this.state === 'off' || this.state === 'boot') return
+    if (this.state === 'sleep' || this.state === 'off' || this.state === 'boot' || this.state === 'zoom') return
     if (this.state === 'poweroff') {
       // Cancel 按钮（滑条上方）
       if (x >= 110 && x < 210 && y >= 372 && y < 406) this.enterLock()
@@ -382,6 +400,7 @@ class IPhoneOS implements PhoneOS {
       const id = hit.kind === 'dock' ? DOCK_IDS[hit.i] : GRID_IDS[hit.i]
       if (!id) return
       this.pressedHit = hit
+      this.deps.audio.keypad()
       this.drawHome()
       return
     }
@@ -499,6 +518,7 @@ class IPhoneOS implements PhoneOS {
 
   private unlock() {
     this.deps.audio.unlock()
+    this.deps.audio.unlockSound()
     this.enterHome()
   }
 
@@ -507,8 +527,18 @@ class IPhoneOS implements PhoneOS {
     this.draw()
   }
 
-  private onAppExit() {
+  private onAppExit(snapshot?: HTMLCanvasElement, app?: MiniApp) {
     if (this.appQuiet) return
+    // 关闭 zoom：app 末帧快照从全屏缩回图标位置，再回 Springboard
+    if (snapshot && app?.id) {
+      this.zoomSnap = snapshot
+      this.zoomDir = 'close'
+      this.zoomT = 0
+      this.zoomRect = this.iconRectFor(app.id)
+      this.zoomLaunchId = null
+      this.state = 'zoom'
+      return
+    }
     this.enterHome()
   }
 
@@ -521,10 +551,64 @@ class IPhoneOS implements PhoneOS {
     return a
   }
 
+  /** app id → 其 Springboard 图标矩形（zoom 过渡的起/终点） */
+  private iconRectFor(id: string): { x: number; y: number; u: number } {
+    const gi = GRID_IDS.indexOf(id as (typeof GRID_IDS)[number])
+    if (gi >= 0) return { x: GRID_X[gi % 4]!, y: GRID_Y[(gi / 4) | 0]!, u: 57 }
+    const di = DOCK_IDS.indexOf(id as (typeof DOCK_IDS)[number])
+    if (di >= 0) return { x: DOCK_X[di]!, y: DOCK_Y, u: 50 }
+    return { x: 131, y: 211, u: 57 }
+  }
+
   private launchApp(id: string) {
-    this.state = 'app'
-    this.runtime.launch(this.appOf(id), {})
-    this.deps.screen.render()
+    // 打开 zoom：先截当前 Springboard 帧，从图标位置缩放到全屏，完成后再启动 app
+    this.zoomSnap = this.deps.screen.snapshot()
+    this.zoomDir = 'open'
+    this.zoomT = 0
+    this.zoomRect = this.iconRectFor(id)
+    this.zoomLaunchId = id
+    this.state = 'zoom'
+    this.drawZoom()
+  }
+
+  /** zoom 过渡一帧推进 */
+  private stepZoom(dt: number) {
+    this.zoomT += dt
+    const p = Math.min(1, this.zoomT / IPhoneOS.ZOOM_DUR)
+    this.drawZoom(p)
+    if (p < 1) return
+    // 完成
+    const id = this.zoomLaunchId
+    this.zoomSnap = null
+    this.zoomLaunchId = null
+    if (this.zoomDir === 'open' && id) {
+      this.state = 'app'
+      this.runtime.launch(this.appOf(id), {})
+      this.deps.screen.render()
+    } else {
+      this.enterHome()
+    }
+  }
+
+  /**
+   * 绘制 zoom 过渡：把快照按 ease 缩放（open: 图标→全屏；close: 全屏→图标）。
+   * 黑底天然提供缩小时的淡出（快照缩小后四周为黑），无需额外 scrim。
+   */
+  private drawZoom(p = 0) {
+    const s = this.deps.screen
+    const ease = this.zoomDir === 'open' ? 1 - Math.pow(1 - p, 3) : Math.pow(p, 3)
+    const r = this.zoomRect
+    // 图标中心/尺寸 → 全屏中心/尺寸 插值（open 时 ease 0→1）
+    const icx = r.x + r.u / 2, icy = r.y + r.u / 2
+    const fcx = W / 2, fcy = H / 2
+    const cx = icx + (fcx - icx) * ease
+    const cy = icy + (fcy - icy) * ease
+    const w = r.u + (W - r.u) * ease
+    const h = r.u + (H - r.u) * ease
+    s.clear()
+    s.fillRect(0, 0, W, H, C.BLACK)
+    if (this.zoomSnap) s.blit(this.zoomSnap, Math.round(cx - w / 2), Math.round(cy - h / 2), { w: Math.round(w), h: Math.round(h), smooth: true })
+    s.render()
   }
 
   /** 从应用中静默切走（来电/去电/跳短信）：onExit 不回 Springboard */
@@ -798,6 +882,7 @@ class IPhoneOS implements PhoneOS {
       case 'ringing': this.drawRinging(); break
       case 'incall': this.drawInCall(); break
       case 'poweroff': this.drawPowerOff(); break
+      case 'zoom': break
       case 'app': break
     }
     // 模态提醒（新短信/闹钟）覆盖在主屏或锁屏之上
@@ -914,7 +999,7 @@ class IPhoneOS implements PhoneOS {
       names.clock, names.calculator, names.notes, names.settings,
     ]
     return icons.map((icon, i) => ({
-      id: GRID_IDS[i]!, name: labels[i]!, icon,
+      id: GRID_IDS[i]!, name: labels[i]!, icon, iconPng: GRID_IDS[i],
       badge: i === 0 ? () => this.totalUnread() : undefined,
     }))
   }
@@ -923,7 +1008,7 @@ class IPhoneOS implements PhoneOS {
     const icons = [iconPhone, iconMail, iconSafari, iconIpod]
     const labels = [names.phone, names.mail, names.safari, names.ipod]
     return icons.map((icon, i) => ({
-      id: DOCK_IDS[i]!, name: labels[i]!, icon,
+      id: DOCK_IDS[i]!, name: labels[i]!, icon, iconPng: DOCK_IDS[i],
       badge: i === 0 ? () => this.missedN : i === 1 ? () => this.mailUnreadN : undefined,
     }))
   }

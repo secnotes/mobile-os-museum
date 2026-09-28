@@ -1,20 +1,34 @@
 import type { Screen } from '../../hal/screen'
 import { C } from './palette'
+import { assets } from './assets'
 
 /** 开机总时长（秒）：真机约 20s+，博物馆压缩到 3s */
 export const BOOT_TOTAL = 3
 
+/** 开机 Apple logo 渲染尺寸（源 PNG 100×123，等比放大至约 84 高，居中） */
+const APPLE_W = 84
+const APPLE_H = Math.round(APPLE_W * (123 / 100))
+
 /**
  * 开机动画：黑屏 → 0.25s 后 Apple logo 持续到加载完成 → 直接进锁屏。
  * 真机 1.0 无白闪/无进度条/无 spinner，仅黑底 Apple logo。
+ * logo 优先用真机 PNG（assets.fw('apple')）；PNG 未就绪时回落到程序化矢量。
  */
 export function drawBoot(s: Screen, t: number) {
   s.fillRect(0, 0, 320, 480, C.BLACK)
-  if (t >= 0.25) drawApple(s, 160, 240)
+  if (t < 0.25) return
+  const img = assets.fw('apple')
+  if (img) {
+    s.blit(img, Math.round((320 - APPLE_W) / 2), Math.round((480 - APPLE_H) / 2), {
+      w: APPLE_W, h: APPLE_H, smooth: true,
+    })
+    return
+  }
+  drawApple(s, 160, 240)
 }
 
 /**
- * Apple logo（1977 矢量，iPhone 1.0 沿用）：
+ * Apple logo 程序化兜底（PNG 未加载时）：
  * 椭圆果身（接近方形）+ 顶部叶根 V 凹 + 底部双臀凹 + 右侧咬口 + 右上斜叶。
  * 逐行扫描，每行产出 0–2 段（V 凹/臀凹会把中线切开）。
  */

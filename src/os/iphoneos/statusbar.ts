@@ -67,7 +67,8 @@ export function statusBar(
   s.fillRect(bx, by + 10, 24, 1, fg)
   s.fillRect(bx + 25, by + 4, 2, 4, fg)
   const cells = Math.max(1, Math.round(opts.batteryPct / 100 * 20))
-  const batColor = opts.batteryPct <= 20 ? C.RED : opts.dark ? C.GREEN : C.GREEN_D
+  // 真机 1.0 状态栏电池：低电红，否则深色填充（充电才绿；HAL 无充电态，故默认深色）
+  const batColor = opts.batteryPct <= 20 ? C.RED : opts.dark ? C.GRAY5 : C.INK
   s.fillRect(bx + 2, by + 2, Math.min(cells, 20), 7, batColor)
 }
 

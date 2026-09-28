@@ -106,6 +106,12 @@ export class AudioSynth {
     this.tone(1318, 0.03, { gain: 0.035 })
   }
 
+  /** 解锁音：两短音上行 click（模拟真机 slide-to-unlock 反馈） */
+  unlockSound() {
+    this.tone(1175, 0.04, { type: 'sine', gain: 0.05 })
+    this.tone(1568, 0.06, { type: 'sine', gain: 0.05, when: 0.04 })
+  }
+
   /** DTMF 双音多频：真机按数字键时的双频率拨号音 */
   dtmf(key: string) {
     const rows: Record<string, [number, number]> = {
