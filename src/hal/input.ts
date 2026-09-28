@@ -39,6 +39,9 @@ export type DragEndListener = (moved: boolean) => void
 /** 触屏长按（按下停留 ~550ms 且未移动） */
 export type LongPressListener = (x: number, y: number) => void
 
+/** 鼠标滚轮：纵向像素增量（正值=向下滚） */
+export type WheelListener = (deltaY: number, x: number, y: number) => void
+
 export class InputBus {
   private down = new Set<DeviceKey>()
   private listeners = new Set<KeyListener>()
@@ -48,6 +51,7 @@ export class InputBus {
   private dragListeners = new Set<DragListener>()
   private dragEndListeners = new Set<DragEndListener>()
   private longPressListeners = new Set<LongPressListener>()
+  private wheelListeners = new Set<WheelListener>()
   private holdTimers = new Map<DeviceKey, ReturnType<typeof setTimeout>>()
   private repTimers = new Map<DeviceKey, ReturnType<typeof setInterval>>()
 
@@ -86,6 +90,11 @@ export class InputBus {
     return () => this.longPressListeners.delete(fn)
   }
 
+  subscribeWheel(fn: WheelListener): () => void {
+    this.wheelListeners.add(fn)
+    return () => this.wheelListeners.delete(fn)
+  }
+
   /** 连续拖拽：每次 pointermove 都派发（OS 自己决定手势区域与阈值） */
   drag(x: number, y: number, sx: number, sy: number) {
     for (const fn of [...this.dragListeners]) fn(x, y, sx, sy)
@@ -109,6 +118,11 @@ export class InputBus {
   /** 触屏抬起（长按判定用） */
   tapUp(x: number, y: number) {
     for (const fn of [...this.tapUpListeners]) fn(x, y)
+  }
+
+  /** 鼠标滚轮：向下滚 deltaY>0 */
+  wheel(deltaY: number, x: number, y: number) {
+    for (const fn of [...this.wheelListeners]) fn(deltaY, x, y)
   }
 
   /** 触屏滑动（拖拽越过阈值 / 鼠标滚轮），每次手势只派发一次 */

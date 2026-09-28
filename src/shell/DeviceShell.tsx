@@ -168,6 +168,15 @@ export function DeviceShell({
     canvas.addEventListener('pointerup', onTouchEnd)
     canvas.addEventListener('pointercancel', onTouchEnd)
 
+    // 鼠标滚轮：转为屏幕坐标后派发（如抽屉网格滚动）；preventDefault 避免页面滚动
+    const onWheel = (e: WheelEvent) => {
+      const p = toScreen(e)
+      if (!p) return
+      e.preventDefault()
+      input.wheel(e.deltaY, p.x, p.y)
+    }
+    canvas.addEventListener('wheel', onWheel, { passive: false })
+
     const onKeyDown = (e: KeyboardEvent) => {
       const key = mapKeyboardEvent(e, kbVariant)
       if (!key) return
@@ -243,6 +252,7 @@ export function DeviceShell({
       canvas.removeEventListener('pointermove', onTouchMove)
       canvas.removeEventListener('pointerup', onTouchEnd)
       canvas.removeEventListener('pointercancel', onTouchEnd)
+      canvas.removeEventListener('wheel', onWheel)
       frames.destroy()
       input.destroy()
     }

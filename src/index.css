@@ -1034,7 +1034,9 @@ button {
 /* ---------- HTC Dream（G1）侧滑全键盘机壳 ---------- */
 
 .phone.g1 {
-  width: min(520px, 100%);
+  /* 机身宽 = canvas 352 + bezel padding 12×2 + 机身 padding 18×2 = 412，
+     贴住屏幕无多余黑边；窄屏下 min(_,100%) 仍自适应 */
+  width: min(412px, 100%);
   /* G1 标志性的「下巴」弧度 */
   border-radius: 34px 34px 84px 84px;
   padding: 22px 18px 26px;

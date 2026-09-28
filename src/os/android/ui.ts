@@ -6,14 +6,6 @@ export const W = 320
 export const H = 480
 export const STATUS_H = 25
 
-/** 4×4 有序 Bayer 抖动阈值矩阵（0–15） */
-const BAYER4 = [
-  0, 8, 2, 10,
-  12, 4, 14, 6,
-  3, 11, 1, 9,
-  15, 7, 13, 5,
-] as const
-
 /** 圆角矩形（Android 控件观感）：填充 + 1px 描边 */
 export function roundRect(
   s: Screen,
@@ -41,7 +33,7 @@ export function roundRect(
 }
 
 /**
- * 状态栏（Android 1.x 真机样式）：浅灰金属渐变底 + 深色图标文字。
+ * 状态栏（Android 1.x 真机样式）：浅灰底 + 深色图标文字。
  * 左=通知图标（未读信封/静音）；右=信号 → 电量 → 时钟。
  * 真机 1.x 状态栏不放运营商名（运营商在下拉面板头部与锁屏上）。
  */
@@ -49,15 +41,9 @@ export function statusBar(
   s: Screen,
   opts: { unread: boolean; batteryPct: number; carrier: string; clock: string; signalBars: number; silent?: boolean },
 ) {
-  // 浅灰 → 金属灰竖向渐变（1.x 状态栏质感）：PALE 底 + GRAY 用 4×4 Bayer 有序抖动
-  // 随深度加密（随机偏移的抖动在小尺寸下会读成雪花噪点），底部 1px 深灰压边
+  // 纯色浅灰底 + 底部 1px 金属灰压边（真机 1.x 状态栏为平滑浅灰，
+  // 非 Bayer 抖动——4×4 有序抖动在 320×25 窄条上会读成颗粒噪点）
   s.fillRect(0, 0, W, STATUS_H, C.PALE)
-  for (let y = 3; y < STATUS_H - 1; y++) {
-    const th = Math.round(((y - 3) / (STATUS_H - 4)) * 15)
-    for (let x = 0; x < W; x++) {
-      if (BAYER4[((y & 3) << 2) | (x & 3)]! <= th) s.pset(x, y, C.GRAY)
-    }
-  }
   s.fillRect(0, STATUS_H - 1, W, 1, C.METAL)
   const INK = C.INK
   let x = 6
@@ -81,7 +67,7 @@ export function statusBar(
   // 右侧真机顺序：信号 → 电量 → 时钟（深色，时钟最右）
   const clockW = s.measure(opts.clock, { size: 11 })
   const clockX = W - 5 - clockW
-  s.text(clockX, 6, opts.clock, { size: 11, color: INK })
+  s.textSmooth(clockX, 6, opts.clock, { size: 11, color: INK })
   // 电池（深框 + 电量格）
   const bx = clockX - 6 - 17
   const cells = Math.ceil(opts.batteryPct / 25)
@@ -139,4 +125,21 @@ export function clipToWidth(s: Screen, text: string, maxW: number, size: number)
 export function iconTile(s: Screen, x: number, y: number, base: number, hi: number) {
   roundRect(s, x, y, 28, 28, 7, base, null)
   roundRect(s, x + 2, y + 2, 24, 11, 4, hi, null)
+}
+
+/**
+ * 占位用 Android 机器人图标（28×28）：缺真机 PNG 的 app（Email/Pictures/Voice
+ * Dialer）统一用品牌绿色机器人，比各自简陋的程序化图标更协调，也点明 Android 身份。
+ */
+export function androidBotIcon(s: Screen, x: number, y: number) {
+  // 两根天线（深绿描边色）
+  s.line(x + 8, y + 3, x + 11, y + 7, C.DGREEN)
+  s.line(x + 20, y + 3, x + 17, y + 7, C.DGREEN)
+  // 头部（绿色方块，下半与身体相连）
+  s.fillRect(x + 6, y + 7, 16, 5, C.GREEN)
+  // 身体（圆角块）
+  roundRect(s, x + 4, y + 10, 20, 14, 7, C.GREEN, null)
+  // 两眼（白色）
+  s.fillRect(x + 9, y + 10, 2, 2, C.WHITE)
+  s.fillRect(x + 17, y + 10, 2, 2, C.WHITE)
 }

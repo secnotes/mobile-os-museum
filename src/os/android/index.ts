@@ -15,7 +15,7 @@ import { C } from './palette'
 import { assets, RINGTONE_NAMES, ALARM_NAMES, NOTIFY_FILES } from './assets'
 import { RINGTONES } from './ringtones'
 import { loadContacts, type Contact, type CallEntry } from '../../scenario/data'
-import { W, H, STATUS_H, statusBar, roundRect, clipToWidth, time12 } from './ui'
+import { W, H, STATUS_H, statusBar, roundRect, clipToWidth, time12, androidBotIcon } from './ui'
 import { Fx, easeOutCubic } from './anim'
 import { InCallControls } from './incall'
 
@@ -84,7 +84,7 @@ interface Notif {
   ts: number
 }
 
-type Gesture = 'workspace' | 'drawer' | 'shade'
+type Gesture = 'workspace' | 'drawer' | 'drawerScroll' | 'shade'
 
 export default {
   create(deps: OSDeps): PhoneOS {
@@ -118,6 +118,8 @@ class AndroidOS implements PhoneOS {
   private drawerP = 0
   private drawerSel = 0
   private drawerScroll = 0
+  /** 抽屉跟手滚动：按下时刻的 scroll 基线 */
+  private scrollBase = 0
   private shadeP = 0
   // ---- 通知 ----
   private notifs: Notif[] = []
@@ -225,6 +227,15 @@ class AndroidOS implements PhoneOS {
           this.onLongPress(x, y)
         } catch (e) {
           console.error('[android] longpress error', e)
+        }
+      }),
+    )
+    this.offs.push(
+      this.deps.input.subscribeWheel((dy, x, y) => {
+        try {
+          this.onWheel(dy, x, y)
+        } catch (e) {
+          console.error('[android] wheel error', e)
         }
       }),
     )
@@ -450,6 +461,14 @@ class AndroidOS implements PhoneOS {
       if (Math.max(Math.abs(dx), Math.abs(dy)) < 16) return
       if (this.state === 'shade') {
         this.gesture = 'shade'
+      } else if (this.drawerP === 1) {
+        // 抽屉已展开：顶部握把区下拖关闭，网格区上下拖滚动内容
+        if (sy <= STATUS_H + GRIP_H + 6 && dy < 0) {
+          this.gesture = 'drawer'
+        } else if (Math.abs(dy) > Math.abs(dx)) {
+          this.gesture = 'drawerScroll'
+          this.scrollBase = this.drawerScroll
+        } else return
       } else if (Math.abs(dx) > Math.abs(dy)) {
         this.gesture = 'workspace'
       } else if (dy > 0 && sy <= STATUS_H + 6) {
@@ -457,9 +476,6 @@ class AndroidOS implements PhoneOS {
         this.state = 'shade'
         this.shadeP = 0
       } else if (dy < 0 && sy >= H - GRIP_H - 4) {
-        this.gesture = 'drawer'
-      } else if (dy < 0 && this.drawerP === 1 && sy <= STATUS_H + GRIP_H + 6) {
-        // 从顶部握把下拖关闭抽屉
         this.gesture = 'drawer'
       } else return
     }
@@ -472,6 +488,10 @@ class AndroidOS implements PhoneOS {
     } else if (this.gesture === 'drawer') {
       const travel = H - STATUS_H - GRIP_H
       this.drawerP = Math.max(0, Math.min(1, this.drawerP - dy / travel))
+      this.draw()
+    } else if (this.gesture === 'drawerScroll') {
+      // 跟手滚动：按下时的 scroll 基线 + 反向拖拽量
+      this.drawerScroll = Math.max(0, Math.min(this.drawerArea().maxScroll, this.scrollBase - dy))
       this.draw()
     } else {
       this.shadeP = Math.max(0, Math.min(1, this.shadeP + dy / SHADE_MAX))
@@ -501,6 +521,8 @@ class AndroidOS implements PhoneOS {
     } else if (g === 'drawer') {
       if (this.drawerP > 0.5) this.openDrawer()
       else this.closeDrawer()
+    } else if (g === 'drawerScroll') {
+      // 跟手滚动结束：无需收尾，scroll 已在 onDrag 中实时更新
     } else if (this.shadeP > 0.45) {
       this.fx.run(180, (p) => {
         this.shadeP = p
@@ -522,6 +544,15 @@ class AndroidOS implements PhoneOS {
   }
 
   // ---------- 点按 ----------
+
+  /** 鼠标滚轮：抽屉打开时滚动网格（每格 88px，按行对齐） */
+  private onWheel(dy: number, _x: number, _y: number) {
+    if (!this.powered || this.fx.busy) return
+    if (this.state !== 'home' || this.drawerP !== 1) return
+    // 真机抽屉无惯性；这里按行（DRAWER_ROW_H）滚动，方向与滚轮一致
+    const step = DRAWER_ROW_H
+    this.scrollDrawer(dy > 0 ? step : -step)
+  }
 
   private onTap(x: number, y: number) {
     if (!this.powered || this.fx.busy) return
@@ -1666,6 +1697,18 @@ class AndroidOS implements PhoneOS {
       this.drawerScroll = Math.min(maxScroll, y1 - avail)
   }
 
+  /** 抽屉网格滚动增量（夹紧到 [0, maxScroll]）；返回是否实际滚动 */
+  private scrollDrawer(delta: number): boolean {
+    if (this.drawerP !== 1) return false
+    const { maxScroll } = this.drawerArea()
+    if (maxScroll <= 0) return false
+    const next = Math.max(0, Math.min(maxScroll, this.drawerScroll + delta))
+    if (next === this.drawerScroll) return false
+    this.drawerScroll = next
+    this.draw()
+    return true
+  }
+
   private openDrawer() {
     this.drawerSel = 0
     this.drawerScroll = 0
@@ -1795,8 +1838,8 @@ class AndroidOS implements PhoneOS {
       const subW = s.measure(sub, { size: subSize })
       const g1 = 'G1'
       const g1W = s.measure(g1, { size: g1Size })
-      s.text(Math.round(cx - subW / 2), cy - g1Size - 4, sub, { size: subSize, color: C.WHITE })
-      s.text(Math.round(cx - g1W / 2), cy, g1, { size: g1Size, color: C.WHITE })
+      s.textSmooth(Math.round(cx - subW / 2), cy - g1Size - 4, sub, { size: subSize, color: C.WHITE, shadow: true })
+      s.textSmooth(Math.round(cx - g1W / 2), cy, g1, { size: g1Size, color: C.WHITE, shadow: true })
       s.render()
       return
     }
@@ -1868,7 +1911,7 @@ class AndroidOS implements PhoneOS {
       const litFrom = bt / 0.18
       for (let i = 0; i < word.length; i++) {
         const ch = word[i]!
-        s.text(x, (H >> 1) - 24, ch, { size, color: i < litFrom ? C.WHITE : C.GRAY })
+        s.textSmooth(x, (H >> 1) - 24, ch, { size, color: i < litFrom ? C.WHITE : C.GRAY })
         x += s.measure(ch, { size }) + 2
       }
       const cursorFrom = word.length * 0.18 + 0.2
@@ -2022,7 +2065,7 @@ class AndroidOS implements PhoneOS {
       const t = String(n)
       const w = s.measure(t, { size: R > 40 ? 11 : 8 })
       const h = R > 40 ? 9 : 6
-      s.text(
+      s.textSmooth(
         Math.round(cx + Math.sin(ang) * rr - w / 2),
         Math.round(cy - Math.cos(ang) * rr - h / 2),
         t,
@@ -2030,7 +2073,7 @@ class AndroidOS implements PhoneOS {
       )
     })
     // MALMO 小字（12 与 6 之间的真机字样）
-    if (R > 40) s.textCenter(cx, cy + 11, 'MALMO', { size: 7, color: C.METAL })
+    if (R > 40) s.textCenterSmooth(cx, cy + 11, 'MALMO', { size: 7, color: C.METAL })
     // 黑色锥形指针（真机 MALMO 样式；调色板内绘制，不用白色 hand PNG）
     const d = new Date()
     const min = d.getMinutes() + d.getSeconds() / 60
@@ -2055,10 +2098,10 @@ class AndroidOS implements PhoneOS {
     const h = 38
     roundRect(s, x, cy - (h >> 1), w, h, 7, C.WHITE, C.PALE)
     s.blit(googleG(), x + 8, cy - 9, { w: 18, h: 18 })
-    s.text(x + 32, cy - 5, clipToWidth(s, str.searchWidget.replace('Google', '').trim(), w - 100, 12), { size: 12, color: C.GRAY })
+    s.textSmooth(x + 32, cy - 5, clipToWidth(s, str.searchWidget.replace('Google', '').trim(), w - 100, 12), { size: 12, color: C.GRAY })
     // 右侧 Search 按钮
     roundRect(s, x + w - 62, cy - 11, 52, 22, 4, C.PALE, C.GRAY)
-    s.textCenter(x + w - 36, cy - 5, str.dSearchBtn, { size: 10, color: C.INK })
+    s.textCenterSmooth(x + w - 36, cy - 5, str.dSearchBtn, { size: 10, color: C.INK })
   }
 
   /** 相框条目：边框 + 照片（相机照片 / 壁纸中心） */
@@ -2070,7 +2113,7 @@ class AndroidOS implements PhoneOS {
     if (ref && ref !== 'wallpaper') {
       // 相机照片位图在 pictures 应用内管理，这里程序绘制占位
       s.fillRect(cx - (w >> 1), cy - (h >> 1), w, h, C.PANEL)
-      s.textCenter(cx, cy - 4, '🖼', { size: 26, color: C.GRAY })
+      s.textCenterSmooth(cx, cy - 4, '🖼', { size: 26, color: C.GRAY })
     } else {
       const wp = assets.fw('wallpaper')
       if (wp) {
@@ -2090,9 +2133,9 @@ class AndroidOS implements PhoneOS {
       const app = APPS.find((a) => a.id === it.ref)
       if (!app) return
       const aIcon = assets.icon(DRAWER_ICON_MAP[app.id] ?? '')
-      const img = aIcon ?? assets.icon(app.nameEn ?? app.name)
+      const img = aIcon ?? assets.icon(app.nameEn ?? app.name) ?? assets.icon('Android')
       if (img) s.blit(img, cx - 24, cy - 32)
-      else app.icon?.(s, cx - 14, cy - 14)
+      else androidBotIcon(s, cx - 14, cy - 14)
       label = en ? app.nameEn ?? app.name : app.name
     } else {
       const c = this.contacts.find((c) => c.tel === it.ref)
@@ -2103,10 +2146,9 @@ class AndroidOS implements PhoneOS {
           if (dx * dx + dy * dy <= 22 * 22) s.pset(cx + dx, cy - 10 + dy, C.GRAY)
       label = c.name
     }
-    // 真机标签：直接白字（下衬黑阴影保证壁纸花时可读），无胶囊底
+    // 真机标签：白字 + 深色投影（与抽屉标签一致，壁纸花时仍可读），无胶囊底
     const clipped = clipToWidth(s, label, 76, 11)
-    s.textCenter(cx + 1, cy + 21, clipped, { size: 11, color: C.BG })
-    s.textCenter(cx, cy + 20, clipped, { size: 11, color: C.WHITE })
+    s.textCenterSmooth(cx, cy + 20, clipped, { size: 11, color: C.WHITE, shadow: true })
   }
 
   /** 命中测试：当前页 (x,y) 是否落在某个条目上 */
@@ -2170,6 +2212,10 @@ class AndroidOS implements PhoneOS {
     const s = this.deps.screen
     const panelTop = Math.round(H + this.drawerP * (STATUS_H - H))
     s.blit(carbonCanvas(), 0, panelTop, { w: W, h: H - STATUS_H })
+    // 抽屉碳纤维底不透明，已盖住调色板层的主屏图标；但 smooth 文字层在 render
+    // 末尾全局合成，主屏图标标签（电话/名片夹…）会从抽屉底下透出，故清空面板
+    // 覆盖区的 smooth 层（状态栏时钟在 panelTop 之上，保留）
+    s.clearSmooth(0, panelTop, W, H - panelTop)
     // 网格内容（面板本地坐标；panelTop 为面板上沿绝对坐标）
     const localGrid = GRIP_H + 6
     const { avail } = this.drawerArea()
@@ -2182,10 +2228,15 @@ class AndroidOS implements PhoneOS {
       const cy = panelTop + cyLocal
       if (cyLocal < localGrid - 40 || cyLocal > avail + 40) return
       const aIcon = assets.icon(DRAWER_ICON_MAP[app.id] ?? '')
-      const img = aIcon ?? assets.icon(app.nameEn ?? app.name)
+      // 无真机 PNG 的 app（Email/Pictures/Voice Dialer）统一回落到 Android 机器人
+      // 品牌 icon（icons/Android.png），点明 Android 身份且与其它真机图标协调
+      const img = aIcon ?? assets.icon(app.nameEn ?? app.name) ?? assets.icon('Android')
       if (img) {
         s.blit(img, Math.round(cx - 24), cy - 30)
-      } else app.icon?.(s, Math.round(cx - 14), cy - 14)
+      } else {
+        // 资源尚未加载完时的逐帧回落（iconCanvas 透明底，浮于碳纤维之上）
+        s.blit(this.progIcon(), Math.round(cx - 14), cy - 14)
+      }
     })
     // 前景 chrome（握把/聚焦框/标签/滚动条）必须与碳纤维同为全彩 overlay：
     // 调色板层在 overlay 之下，会被不透明的碳纤维盖住
@@ -2193,6 +2244,20 @@ class AndroidOS implements PhoneOS {
   }
 
   private drawerChromeCvs: HTMLCanvasElement | null = null
+  /** 占位机器人图标缓存（缺 PNG 的 app 统一用），避免每帧重渲染 */
+  private botIconCvs: HTMLCanvasElement | null = null
+  /**
+   * 取（并缓存）Android 机器人占位图标的离屏 canvas。抽屉碳纤维底是不透明
+   * overlay，会盖住调色板层——图标须先渲染成透明底 canvas，再像 PNG 图标
+   * 一样 blit 为 overlay，才能浮于碳纤维之上。Email/Pictures/Voice Dialer
+   * 无真机 PNG，统一用品牌绿色机器人。
+   */
+  private progIcon(): HTMLCanvasElement {
+    if (!this.botIconCvs) {
+      this.botIconCvs = this.deps.screen.iconCanvas(androidBotIcon)
+    }
+    return this.botIconCvs
+  }
   /** 构建抽屉前景全彩画布（握把 + 橙色聚焦框 + 白字标签 + 滚动条） */
   private buildDrawerChrome(
     panelTop: number, localGrid: number, avail: number, en: boolean,
@@ -2303,22 +2368,22 @@ class AndroidOS implements PhoneOS {
     else s.fillRect(0, STATUS_H, W, H - STATUS_H, C.BAR)
     // 信息面板
     roundRect(s, 20, 116, W - 40, 218, 14, C.PANEL, C.METAL)
-    s.textCenter(W >> 1, 134, str.carrier, { size: 14, color: C.WHITE })
+    s.textCenterSmooth(W >> 1, 134, str.carrier, { size: 14, color: C.WHITE, shadow: true })
     s.fillRect(40, 156, W - 80, 1, C.METAL)
-    s.textCenter(W >> 1, 168, this.clockStr(d).replace(' AM', '').replace(' PM', ''), { size: 38, color: C.WHITE })
-    s.textCenter(W >> 1, 224, str.lockDate(d), { size: 14, color: C.PALE })
+    s.textCenterSmooth(W >> 1, 168, this.clockStr(d).replace(' AM', '').replace(' PM', ''), { size: 38, color: C.WHITE, shadow: true })
+    s.textCenterSmooth(W >> 1, 224, str.lockDate(d), { size: 14, color: C.PALE })
     let ly = 254
     if (this.deps.battery.charging) {
-      s.textCenter(W >> 1, ly, str.lockCharging, { size: 12, color: C.GREEN })
+      s.textCenterSmooth(W >> 1, ly, str.lockCharging, { size: 12, color: C.GREEN })
       ly += 22
     }
     const na = this.nextAlarm()
     if (na) {
       const t = `${String(na.h).padStart(2, '0')}:${String(na.m).padStart(2, '0')}`
-      s.textCenter(W >> 1, ly, str.lockNextAlarm(t), { size: 12, color: C.AMBER })
+      s.textCenterSmooth(W >> 1, ly, str.lockNextAlarm(t), { size: 12, color: C.AMBER })
     }
     roundRect(s, (W - 232) >> 1, H - 72, 232, 32, 9, C.PANEL, C.METAL)
-    s.textCenter(W >> 1, H - 63, str.lockHint(this.lockStage), { size: 11, color: C.WHITE })
+    s.textCenterSmooth(W >> 1, H - 63, str.lockHint(this.lockStage), { size: 11, color: C.WHITE, shadow: true })
     s.render()
   }
 
@@ -2333,12 +2398,12 @@ class AndroidOS implements PhoneOS {
     s.fillRect(0, 0, W, ph, C.PANEL)
     // 头部：完整日期 + 清除按钮
     s.fillRect(0, 0, W, 34, C.INK)
-    s.text(8, 9, clipToWidth(s, str.shadeFullDate(d), W - 118, 11), { size: 11, color: C.WHITE })
+    s.textSmooth(8, 9, clipToWidth(s, str.shadeFullDate(d), W - 118, 11), { size: 11, color: C.WHITE, shadow: true })
     roundRect(s, W - 108, 5, 100, 24, 5, C.METAL, null)
-    s.textCenter(W - 58, 10, str.shadeClearAll, { size: 10, color: C.WHITE })
+    s.textCenterSmooth(W - 58, 10, str.shadeClearAll, { size: 10, color: C.WHITE, shadow: true })
     // Notifications 分区
     s.fillRect(0, 36, W, 22, C.INK)
-    s.text(8, 41, str.shadeNotifications, { size: 11, color: C.PALE })
+    s.textSmooth(8, 41, str.shadeNotifications, { size: 11, color: C.PALE })
     if (this.notifs.length) {
       this.notifs.forEach((n, i) => {
         const y = 62 + i * 58
@@ -2358,13 +2423,13 @@ class AndroidOS implements PhoneOS {
           if (img) s.blit(img, 6, y - 4, { w: 24, h: 24 })
           else s.fillRect(8, y, 20, 16, C.BLUE)
         }
-        s.text(36, y, clipToWidth(s, n.title, W - 80, 13), { size: 13, color: C.WHITE })
-        s.textRight(W - 8, y + 1, agoStr(n.ts, this.deps.lang.get() === 'en'), { size: 9, color: C.GRAY })
-        s.text(36, y + 22, clipToWidth(s, n.text, W - 44, 10), { size: 10, color: C.PALE })
+        s.textSmooth(36, y, clipToWidth(s, n.title, W - 80, 13), { size: 13, color: C.WHITE, shadow: true })
+        s.textRightSmooth(W - 8, y + 1, agoStr(n.ts, this.deps.lang.get() === 'en'), { size: 9, color: C.GRAY })
+        s.textSmooth(36, y + 22, clipToWidth(s, n.text, W - 44, 10), { size: 10, color: C.PALE })
         s.fillRect(8, y + 46, W - 16, 1, C.INK)
       })
     } else {
-      s.textCenter(W >> 1, 110, str.shadeEmpty, { size: 13, color: C.GRAY })
+      s.textCenterSmooth(W >> 1, 110, str.shadeEmpty, { size: 13, color: C.GRAY })
     }
   }
 
@@ -2401,7 +2466,7 @@ class AndroidOS implements PhoneOS {
     // 标题栏（真机灰底白字）
     roundRect(s, 6, y0, W - 12, 40, 10, C.METAL, null)
     s.fillRect(6, y0 + 24, W - 12, 16, C.METAL)
-    s.text(16, y0 + 11, top.title, { size: 15, color: C.WHITE })
+    s.textSmooth(16, y0 + 11, top.title, { size: 15, color: C.WHITE, shadow: true })
     top.items.forEach((it, i) => {
       const ry = y0 + 44 + i * 46
       if (i === this.dlgSel) {
@@ -2417,9 +2482,10 @@ class AndroidOS implements PhoneOS {
               s.pset(20 + dx, cy + dy, i === this.dlgSel ? C.WHITE : C.GRAY)
           }
       }
-      s.text(38, ry + 9, clipToWidth(s, it.label, W - 60, 13), {
+      s.textSmooth(38, ry + 9, clipToWidth(s, it.label, W - 60, 13), {
         size: 13,
         color: i === this.dlgSel ? C.WHITE : C.INK,
+        shadow: i === this.dlgSel,
       })
     })
   }
@@ -2440,9 +2506,10 @@ class AndroidOS implements PhoneOS {
         roundRect(s, cx - 48, cy - 4, 96, MENU_CELL_H - 4, 8, C.ORANGE, null)
       }
       it.icon(s, cx - 19, cy + 4)
-      s.textCenter(cx, cy + 48, clipToWidth(s, it.label, 92, 12), {
+      s.textCenterSmooth(cx, cy + 48, clipToWidth(s, it.label, 92, 12), {
         size: 12,
         color: C.WHITE,
+        shadow: true,
       })
     })
   }
@@ -2456,19 +2523,19 @@ class AndroidOS implements PhoneOS {
     // 标题栏（真机灰底白字）
     roundRect(s, 6, top, W - 12, 26, 10, C.METAL, null)
     s.fillRect(6, top + 16, W - 12, 10, C.METAL)
-    s.text(16, top + 6, str.searchHint, { size: 12, color: C.WHITE })
+    s.textSmooth(16, top + 6, str.searchHint, { size: 12, color: C.WHITE, shadow: true })
     // 输入行：Google g + 文本框 + Go
     const iy = top + 40
     roundRect(s, 14, iy, 30, 30, 6, C.BLUE, null)
-    s.textCenter(29, iy + 7, 'g', { size: 16, color: C.WHITE })
+    s.textCenterSmooth(29, iy + 7, 'g', { size: 16, color: C.WHITE, shadow: true })
     roundRect(s, 50, iy, W - 50 - 86, 30, 6, C.WHITE, C.GRAY)
-    s.text(58, iy + 9, this.searchText || ' ', { size: 13, color: C.INK })
+    s.textSmooth(58, iy + 9, this.searchText || ' ', { size: 13, color: C.INK })
     if (this.searchText) {
       const w = s.measure(clipToWidth(s, this.searchText, W - 50 - 100, 13), { size: 13 })
       s.fillRect(58 + w, iy + 8, 2, 14, C.INK)
     }
     roundRect(s, W - 78, iy, 62, 30, 6, C.ORANGE, null)
-    s.textCenter(W - 47, iy + 9, str.searchGo, { size: 13, color: C.WHITE })
+    s.textCenterSmooth(W - 47, iy + 9, str.searchGo, { size: 13, color: C.WHITE, shadow: true })
   }
 
   /** 真机 AlarmAlert：深色屏 + 大时间 + 标签 + Snooze/Dismiss */
@@ -2490,15 +2557,15 @@ class AndroidOS implements PhoneOS {
     const two = (x: number) => String(x).padStart(2, '0')
     const h = a?.h ?? d.getHours()
     const m = a?.m ?? d.getMinutes()
-    s.textCenter(W >> 1, STATUS_H + 58, str.aAlertTitle, { size: 14, color: C.PALE })
-    s.textCenter(W >> 1, STATUS_H + 96, `${two(h)}:${two(m)}`, { size: 54, color: C.WHITE })
+    s.textCenterSmooth(W >> 1, STATUS_H + 58, str.aAlertTitle, { size: 14, color: C.PALE })
+    s.textCenterSmooth(W >> 1, STATUS_H + 96, `${two(h)}:${two(m)}`, { size: 54, color: C.WHITE, shadow: true })
     if (a?.label)
-      s.textCenter(W >> 1, STATUS_H + 176, a.label, { size: 14, color: C.AMBER })
+      s.textCenterSmooth(W >> 1, STATUS_H + 176, a.label, { size: 14, color: C.AMBER })
     // 左：贪睡（绿）；右：关闭（红）。几何须与 onTap 命中区一致
     roundRect(s, 28, H - 96, 120, 56, 12, C.DGREEN, null)
-    s.textCenter(88, H - 62, str.aSnooze, { size: 17, color: C.WHITE })
+    s.textCenterSmooth(88, H - 62, str.aSnooze, { size: 17, color: C.WHITE, shadow: true })
     roundRect(s, W - 148, H - 96, 120, 56, 12, C.RED, null)
-    s.textCenter(W - 88, H - 62, str.aDismiss, { size: 17, color: C.WHITE })
+    s.textCenterSmooth(W - 88, H - 62, str.aDismiss, { size: 17, color: C.WHITE, shadow: true })
     s.render()
   }
 
@@ -2518,7 +2585,7 @@ class AndroidOS implements PhoneOS {
     s.fillRect(0, STATUS_H, W, H - STATUS_H, C.INK)
     const cx = W >> 1
     const blink = Math.floor(Date.now() / 500) % 2 === 0
-    if (blink) s.textCenter(cx, STATUS_H + 34, str.incomingCall, { size: 15, color: C.PALE })
+    if (blink) s.textCenterSmooth(cx, STATUS_H + 34, str.incomingCall, { size: 15, color: C.PALE })
     const cy = STATUS_H + 130
     for (let dy = -44; dy <= 44; dy++)
       for (let dx = -44; dx <= 44; dx++)
@@ -2526,13 +2593,13 @@ class AndroidOS implements PhoneOS {
     roundRect(s, cx - 30, cy + 26, 60, 34, 10, C.GRAY, null)
     const inc = this.incoming
     if (inc) {
-      s.textCenter(cx, cy + 100, inc.name ?? inc.tel, { size: 26, color: C.WHITE })
-      if (inc.name) s.textCenter(cx, cy + 134, inc.tel, { size: 16, color: C.PALE })
+      s.textCenterSmooth(cx, cy + 100, inc.name ?? inc.tel, { size: 26, color: C.WHITE, shadow: true })
+      if (inc.name) s.textCenterSmooth(cx, cy + 134, inc.tel, { size: 16, color: C.PALE })
     }
     roundRect(s, 28, H - 100, 120, 56, 12, C.DGREEN, null)
-    s.textCenter(88, H - 74, str.incomingAnswer, { size: 17, color: C.WHITE })
+    s.textCenterSmooth(88, H - 74, str.incomingAnswer, { size: 17, color: C.WHITE, shadow: true })
     roundRect(s, W - 148, H - 100, 120, 56, 12, C.RED, null)
-    s.textCenter(W - 88, H - 74, str.incomingReject, { size: 17, color: C.WHITE })
+    s.textCenterSmooth(W - 88, H - 74, str.incomingReject, { size: 17, color: C.WHITE, shadow: true })
     s.render()
   }
 
@@ -2558,16 +2625,16 @@ class AndroidOS implements PhoneOS {
     roundRect(s, cx - 28, cy + 24, 56, 32, 10, C.GRAY, null)
     const inc = this.incoming
     if (inc) {
-      s.textCenter(cx, cy + 96, inc.name ?? inc.tel, { size: 24, color: C.INK })
-      if (inc.name) s.textCenter(cx, cy + 128, inc.tel, { size: 15, color: C.GRAY })
+      s.textCenterSmooth(cx, cy + 96, inc.name ?? inc.tel, { size: 24, color: C.INK })
+      if (inc.name) s.textCenterSmooth(cx, cy + 128, inc.tel, { size: 15, color: C.GRAY })
     }
     const m = String(Math.floor(this.callSecs / 60)).padStart(2, '0')
     const sec = String(this.callSecs % 60).padStart(2, '0')
-    s.textCenter(cx, cy + 170, `${m}:${sec}`, { size: 22, color: C.INK })
-    s.textCenter(cx, cy + 200, str.inCall, { size: 13, color: C.GRAY })
+    s.textCenterSmooth(cx, cy + 170, `${m}:${sec}`, { size: 22, color: C.INK })
+    s.textCenterSmooth(cx, cy + 200, str.inCall, { size: 13, color: C.GRAY })
     this.ic.drawStateChips(s, str, cx, cy + 226)
     roundRect(s, (W >> 1) - 70, H - 100, 140, 56, 12, C.RED, null)
-    s.textCenter(cx, H - 74, str.endCall, { size: 17, color: C.WHITE })
+    s.textCenterSmooth(cx, H - 74, str.endCall, { size: 17, color: C.WHITE, shadow: true })
     this.ic.draw(s, str)
     s.render()
   }

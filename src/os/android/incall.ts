@@ -285,7 +285,7 @@ export class InCallControls {
       const text = str.icAdded
       const w = Math.max(150, s.measure(text, { size: 13 }) + 40)
       roundRect(s, (W - w) >> 1, (H >> 1) - 24, w, 48, 10, C.INK, null)
-      s.textCenter(W >> 1, (H >> 1) - 6, text, { size: 13, color: C.WHITE })
+      s.textCenterSmooth(W >> 1, (H >> 1) - 6, text, { size: 13, color: C.WHITE, shadow: true })
     }
   }
 
@@ -298,7 +298,7 @@ export class InCallControls {
     if (this.party) chips.push(str.icParty(this.party))
     if (!chips.length) return
     const joined = chips.join(' · ')
-    s.textCenter(cx, y, joined, { size: 11, color: this.held ? C.AMBER : C.GRAY })
+    s.textCenterSmooth(cx, y, joined, { size: 11, color: this.held ? C.AMBER : C.GRAY })
   }
 
   private labels(str: AndroidStrings): Array<{ label: string; on: boolean }> {
@@ -319,14 +319,16 @@ export class InCallControls {
       const ry = y0 + i * ITEM_H
       if (i === this.sheetSel) s.fillRect(10, ry + 1, W - 20, ITEM_H - 2, C.ORANGE)
       else if (i > 0) s.fillRect(16, ry, W - 32, 1, C.PALE)
-      s.text(42, ry + 14, it.label, {
+      s.textSmooth(42, ry + 14, it.label, {
         size: 14,
         color: i === this.sheetSel ? C.WHITE : C.INK,
+        shadow: i === this.sheetSel,
       })
       if (it.on)
-        s.text(18, ry + 13, '✓', {
+        s.textSmooth(18, ry + 13, '✓', {
           size: 14,
           color: i === this.sheetSel ? C.WHITE : C.GREEN,
+          shadow: i === this.sheetSel,
         })
     })
   }
@@ -342,9 +344,10 @@ export class InCallControls {
       const focus = i === this.padSel
       s.fillRect(kx, ky, KEY_W, KEY_H, focus ? C.ORANGE : C.PALE)
       colorFrame(s, kx, ky, KEY_W, KEY_H, focus ? C.ORANGE : C.GRAY)
-      s.textCenter(kx + (KEY_W >> 1), ky + 15, KEYS[i]!, {
+      s.textCenterSmooth(kx + (KEY_W >> 1), ky + 15, KEYS[i]!, {
         size: 20,
         color: focus ? C.WHITE : C.INK,
+        shadow: focus,
       })
     }
   }
@@ -352,23 +355,23 @@ export class InCallControls {
   private drawPad(s: Screen) {
     this.drawPanelBase(s)
     const shown = this.dtmf || '|'
-    s.textCenter(W >> 1, STATUS_H + 42, shown, { size: 24, color: C.INK })
+    s.textCenterSmooth(W >> 1, STATUS_H + 42, shown, { size: 24, color: C.INK })
   }
 
   private drawAdd(s: Screen, str: AndroidStrings) {
     this.drawPanelBase(s)
-    s.textCenter(W >> 1, STATUS_H + 24, str.icAddHint, { size: 10, color: C.GRAY })
-    s.textCenter(W >> 1, STATUS_H + 48, this.addNum || '|', { size: 22, color: C.INK })
+    s.textCenterSmooth(W >> 1, STATUS_H + 24, str.icAddHint, { size: 10, color: C.GRAY })
+    s.textCenterSmooth(W >> 1, STATUS_H + 48, this.addNum || '|', { size: 22, color: C.INK })
     // 绿色呼叫胶囊
     roundRect(s, (W >> 1) - 70, H - 88, 140, 44, 10, C.DGREEN, null)
-    s.textCenter(W >> 1, H - 72, str.dialerCall, { size: 15, color: C.WHITE })
+    s.textCenterSmooth(W >> 1, H - 72, str.dialerCall, { size: 15, color: C.WHITE, shadow: true })
   }
 
   private drawAdding(s: Screen, str: AndroidStrings) {
     // 不遮底屏：中央深色胶囊提示「正在呼出」
     const w = 200
     roundRect(s, (W - w) >> 1, (H >> 1) - 30, w, 60, 10, C.INK, null)
-    s.textCenter(W >> 1, H >> 1 - 6, str.icCalling, { size: 15, color: C.WHITE })
+    s.textCenterSmooth(W >> 1, H >> 1 - 6, str.icCalling, { size: 15, color: C.WHITE, shadow: true })
   }
 }
 

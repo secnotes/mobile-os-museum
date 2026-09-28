@@ -9,6 +9,7 @@ const BASE = `${import.meta.env.BASE_URL}g1/`
 const ICON_FILES: Record<string, string> = {
   AlarmClock: 'icons/AlarmClock.png',
   Amazon: 'icons/Amazon.png',
+  Android: 'icons/Android.png',
   Browser: 'icons/Browser.png',
   Calculator: 'icons/Calculator.png',
   Calendar: 'icons/Calendar.png',

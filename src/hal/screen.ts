@@ -10,6 +10,8 @@ export interface TextOpts {
   color?: number
   /** 硬裁剪宽度（真机上标题被裁断而非省略号） */
   maxWidth?: number
+  /** smooth 文本：是否带 1px 深色投影（白字压深底时开，与抽屉标签一致） */
+  shadow?: boolean
 }
 
 export class Screen {
@@ -111,6 +113,11 @@ export class Screen {
     this.buf.fill(0)
     this.overlays.length = 0
     this.bgOverlays.length = 0
+    if (this.smoothCvs) {
+      this.smoothCtx!.setTransform(1, 0, 0, 1, 0, 0)
+      this.smoothCtx!.clearRect(0, 0, this.smoothCvs.width, this.smoothCvs.height)
+      this.smoothDirty = false
+    }
   }
 
   /** 仅清空前景位图叠加层（动效逐帧重铺时用，不动像素缓冲） */
@@ -156,6 +163,39 @@ export class Screen {
     this.bgOverlays.push({ img, x, y, ...opts })
   }
 
+  /**
+   * 把程序化图标（app.icon 回调，画到调色板缓冲）渲染到一张透明背景的离屏 canvas，
+   * 供在不透明 overlay 面板（如抽屉碳纤维底）之上用 blit 合成——否则调色板层会被
+   * 后加的不透明 overlay 盖住。复用本 Screen 的调色板与字体；结果建议调用方缓存。
+   */
+  iconCanvas(draw: (s: Screen, x: number, y: number) => void, w = 28, h = 28): HTMLCanvasElement {
+    // 用一个 sentinel 底色（调色板里不会出现的品红）渲染，再把该色替换为透明，
+    // 得到真正透明底的图标画布。直接用调色板 buf 的 0 索引（底色）渲染成品红，
+    // 图标像素（非 0 索引）按调色板着色，最后逐像素把品红改透明。
+    const sentinel = '#ff00ff'
+    const mini = new Screen(document.createElement('canvas'), w, h, {
+      scale: 1,
+      bg: sentinel,
+      // 占位 palette（构造器会 parseHex）；真 pal 在下面直接覆盖（已是 RGB 数组，
+      // 绕过 parseHex——它只认 hex，不认 rgb() 字符串）
+      palette: this.pal ? this.pal.map(() => '#000000') : undefined,
+      fontFamily: this.fontFamily,
+    })
+    if (this.pal) mini.pal = this.pal
+    draw(mini, 0, 0)
+    mini.render()
+    const out = mini.snapshot()
+    const g = out.getContext('2d')!
+    const d = g.getImageData(0, 0, w, h)
+    for (let i = 0; i < d.data.length; i += 4) {
+      if (d.data[i] >= 250 && d.data[i + 1] <= 5 && d.data[i + 2] >= 250) {
+        d.data[i + 3] = 0
+      }
+    }
+    g.putImageData(d, 0, 0)
+    return out
+  }
+
   pset(x: number, y: number, v: number = 1) {
     x = x | 0
     y = y | 0
@@ -171,6 +211,14 @@ export class Screen {
 
   fillRect(x: number, y: number, w: number, h: number, v: number = 1) {
     for (let j = y; j < y + h; j++) for (let i = x; i < x + w; i++) this.pset(i, j, v)
+    // smooth 文本叠加层与调色板缓冲分离：fillRect 重铺不透明背景时，同步清空该矩形
+    // 的 smooth 层，否则上一帧画在该处的文字（滚动/重绘时位置已变）会残留透出，与新帧
+    // 文字重叠。使 smooth 文字获得与调色板文字一致的"被背景覆盖即清除"语义。
+    if (this.smoothCvs && this.smoothDirty) {
+      const SS = Screen.SMOOTH_SS
+      this.smoothCtx!.setTransform(1, 0, 0, 1, 0, 0)
+      this.smoothCtx!.clearRect(x * SS, y * SS, w * SS, h * SS)
+    }
   }
 
   frameRect(x: number, y: number, w: number, h: number) {
@@ -223,6 +271,9 @@ export class Screen {
   /**
    * 绘制文字（自动检测汉字），返回占用宽度；color 为调色板索引（单色模式恒为 1）。
    * maxWidth：硬裁剪到给定宽度（WP 瓷贴标题等真机就是裁断而非省略号）。
+   *
+   * 彩色调色板模式（Android 等智能机）下转发到 textSmooth，统一全机文字抗锯齿，
+   * 消除 app 内选项/列表字体的颗粒感；单色机走阈值化点阵以保留 LCD 质感。
    */
   text(
     x: number,
@@ -230,6 +281,11 @@ export class Screen {
     str: string,
     opts: TextOpts = {},
   ): number {
+    if (this.pal) {
+      this.textSmooth(x, y, str, opts)
+      const w = this.measure(str, opts)
+      return opts.maxWidth === undefined ? w : Math.min(w, opts.maxWidth)
+    }
     const d = this.textData(str, opts)
     const ci = opts.color ?? 1
     const mw = opts.maxWidth
@@ -242,12 +298,14 @@ export class Screen {
 
   /** 以 cx 为中心绘制 */
   textCenter(cx: number, y: number, str: string, opts: TextOpts = {}) {
+    if (this.pal) { this.textCenterSmooth(cx, y, str, opts); return }
     const d = this.textData(str, opts)
     this.text(cx - Math.floor(d.w / 2), y, str, opts)
   }
 
   /** 以 x 为右边界右对齐绘制 */
   textRight(x: number, y: number, str: string, opts: TextOpts = {}) {
+    if (this.pal) { this.textRightSmooth(x, y, str, opts); return }
     const d = this.textData(str, opts)
     this.text(x - d.w, y, str, opts)
   }
@@ -277,17 +335,118 @@ export class Screen {
     return this.textData(str, opts).w
   }
 
+  // ---------- smooth 文本叠加层 ----------
+  // 抽屉 buildDrawerChrome 的 2× 超采样 + smooth 下采样技术泛化到 Screen：
+  // 原生 fillText（带抗锯齿）画在 2× 离屏画布上，render 时以 imageSmoothing
+  // 缩回逻辑尺寸，绕开调色板缓冲的 1-bit 阈值化，文字达到与抽屉一致的 AA 清晰度。
+  // 仅在显式调用 textSmooth* 时启用；单色机不调用即零开销。
+  private static readonly SMOOTH_SS = 2
+  private smoothCvs: HTMLCanvasElement | null = null
+  private smoothCtx: CanvasRenderingContext2D | null = null
+  private smoothDirty = false
+
+  private initSmooth() {
+    const SS = Screen.SMOOTH_SS
+    this.smoothCvs = document.createElement('canvas')
+    this.smoothCvs.width = this.w * SS
+    this.smoothCvs.height = this.h * SS
+    this.smoothCtx = this.smoothCvs.getContext('2d')!
+  }
+
+  /** 解析调色板索引 → css 颜色（smooth 画布用） */
+  private smoothColor(ci: number): string {
+    if (this.pal) {
+      const c = this.pal[ci] ?? this.bgRgb
+      return `rgb(${c[0]},${c[1]},${c[2]})`
+    }
+    // 单色模式：1=fg，0=bg
+    return ci ? this.fg : this.bg
+  }
+
+  /** 与 textData 一致的字体族选择（供 smooth 与阈值两条路径共用） */
+  private fontFor(str: string, size: number): string {
+    const hasHan = /[⺀-鿿　-〿＀-￯]/.test(str)
+    if (this.fontFamily)
+      // 真机字体族（如 Droid Sans + Fallback）；优先用户声明，回落系统中文
+      return `${size}px "${this.fontFamily}", "Droid Sans Fallback", "PingFang SC", "Noto Sans CJK SC", sans-serif`
+    return hasHan
+      ? `${size}px "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif`
+      : `bold ${size}px "Courier New", ui-monospace, monospace`
+  }
+
+  /**
+   * smooth 绘制文字（保留抗锯齿）。坐标语义与 text() 完全一致：基线对齐
+   * textData 的离屏 (1, size+1) fillText → pset(x+i, y+j)，故替换 text() 不移位。
+   * color 为调色板索引；shadow=true 时带 1px 深色投影（白字压深底用，与抽屉标签一致）。
+   */
+  textSmooth(x: number, y: number, str: string, opts: TextOpts = {}) {
+    if (!this.smoothCvs) this.initSmooth()
+    const g = this.smoothCtx!
+    const SS = Screen.SMOOTH_SS
+    const hasHan = /[⺀-鿿　-〿＀-￯]/.test(str)
+    const size = opts.size ?? (hasHan ? 12 : 9)
+    const font = opts.font ?? this.fontFor(str, size)
+    g.save()
+    g.setTransform(SS, 0, 0, SS, 0, 0)
+    g.font = font
+    g.textBaseline = 'alphabetic'
+    if (opts.shadow) {
+      g.shadowColor = 'rgba(0,0,0,0.7)'
+      g.shadowBlur = 2
+      g.shadowOffsetX = 1
+      g.shadowOffsetY = 1
+    }
+    g.fillStyle = this.smoothColor(opts.color ?? 1)
+    if (opts.maxWidth !== undefined) {
+      // 硬裁剪到 maxWidth（与 text() 一致：超出列不绘）
+      g.beginPath()
+      g.rect(x, y, opts.maxWidth, size + 6)
+      g.clip()
+    }
+    // 基线对齐 text()：textData 在离屏 (1, size+1) 处 fillText，再 pset(x+i, y+j)
+    g.fillText(str, x + 1, y + size + 1)
+    g.restore()
+    this.smoothDirty = true
+  }
+
+  /** 以 cx 为中心 smooth 绘制（位置用 measure 对齐 textCenter，替换不移位） */
+  textCenterSmooth(cx: number, y: number, str: string, opts: TextOpts = {}) {
+    const w = this.measure(str, opts)
+    this.textSmooth(cx - Math.floor(w / 2), y, str, opts)
+  }
+
+  /** 以 x 为右边界右对齐 smooth 绘制 */
+  textRightSmooth(x: number, y: number, str: string, opts: TextOpts = {}) {
+    const w = this.measure(str, opts)
+    this.textSmooth(x - w, y, str, opts)
+  }
+
+  /**
+   * 清空 smooth 叠加层中指定逻辑区域：当某不透明面板（如抽屉）覆盖该区域时，
+   * 其下方已画到 smoothCvs 的文字会因 blitSmooth 最后合成而透出面板之上，
+   * 故面板绘制后须清空其覆盖区，避免下层文字漏出。区域外（如状态栏）保留。
+   */
+  clearSmooth(x: number, y: number, w: number, h: number) {
+    if (!this.smoothCvs) return
+    const SS = Screen.SMOOTH_SS
+    this.smoothCtx!.setTransform(1, 0, 0, 1, 0, 0)
+    this.smoothCtx!.clearRect(x * SS, y * SS, w * SS, h * SS)
+  }
+
+  /** render 时把 smooth 叠加层合成到屏幕（在前景 overlay 之上，文字居顶） */
+  private blitSmooth() {
+    if (!this.smoothDirty || !this.smoothCvs) return
+    const { ctx } = this
+    ctx.imageSmoothingEnabled = true
+    ctx.imageSmoothingQuality = 'high'
+    ctx.drawImage(this.smoothCvs, 0, 0, this.w, this.h)
+    ctx.imageSmoothingEnabled = false
+  }
+
   private textData(str: string, opts: { size?: number; font?: string; color?: number }): { data: Uint8Array; w: number; h: number; stride: number } {
     const hasHan = /[⺀-鿿　-〿＀-￯]/.test(str)
     const size = opts.size ?? (hasHan ? 12 : 9)
-    const font =
-      opts.font ??
-      (this.fontFamily
-        ? // 真机字体族（如 Droid Sans + Fallback）；优先用户声明，回落系统中文
-          `${size}px "${this.fontFamily}", "Droid Sans Fallback", "PingFang SC", "Noto Sans CJK SC", sans-serif`
-        : hasHan
-          ? `${size}px "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif`
-          : `bold ${size}px "Courier New", ui-monospace, monospace`)
+    const font = opts.font ?? this.fontFor(str, size)
     const c = this.offCtx
     c.font = font
     const w = Math.min(Math.ceil(c.measureText(str).width) + 2, 512)
@@ -394,6 +553,8 @@ export class Screen {
       }
       // 叠加层随场景持久：由 clear() 在下一次绘制周期开头清空，不在 render 中清除，
       // 这样 FrameHub 每帧调用 render() 时壁纸/图标等叠加层不会丢失。
+      // smooth 文本叠加层最后合成（在前景 overlay 之上，文字居顶，与抽屉 chrome 同位）
+      this.blitSmooth()
       return
     }
     ctx.fillStyle = this.bg
@@ -405,6 +566,7 @@ export class Screen {
         if (this.buf[row + x]) ctx.fillRect(x + 0.06, y + 0.06, 0.88, 0.88)
       }
     }
+    this.blitSmooth()
   }
 }
 
