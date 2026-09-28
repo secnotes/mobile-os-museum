@@ -15,6 +15,7 @@ const APPLE_H = Math.round(APPLE_W * (123 / 100))
  * logo 优先用真机 PNG（assets.fw('apple')）；PNG 未就绪时回落到程序化矢量。
  */
 export function drawBoot(s: Screen, t: number) {
+  s.clearOverlays()
   s.fillRect(0, 0, 320, 480, C.BLACK)
   if (t < 0.25) return
   const img = assets.fw('apple')

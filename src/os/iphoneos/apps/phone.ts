@@ -457,6 +457,12 @@ class PhoneApp extends IphoneApp {
   protected dragEnd() {
     for (const sc of Object.values(this.scrollers)) sc.onEnd()
   }
+  protected wheel(dy: number) {
+    if (this.detail) return
+    const map: Record<TabName, string> = { fav: 'fav', rec: 'rec', contacts: 'contacts', keys: '', vm: 'vm' }
+    const key = map[this.tab]
+    if (key) this.scrollers[key]!.wheel(dy)
+  }
   protected frame(dt: number) {
     super.frame(dt)
     for (const sc of Object.values(this.scrollers)) sc.step(dt)

@@ -217,6 +217,9 @@ class MailApp extends IphoneApp {
   protected dragEnd() {
     this.scroller.onEnd()
   }
+  protected wheel(dy: number) {
+    if (this.view === 'msg') this.scroller.wheel(dy)
+  }
   protected frame(dt: number) {
     super.frame(dt)
     this.scroller.step(dt)

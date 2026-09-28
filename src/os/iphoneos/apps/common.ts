@@ -95,6 +95,7 @@ export abstract class IphoneApp {
     this.ctx.onDrag((x, y, sx, sy) => this.drag(x, y, sx, sy))
     this.ctx.onDragEnd((moved) => this.dragEnd(moved))
     this.ctx.onLongPress((x, y) => this.longPress(x, y))
+    this.ctx.onWheel((dy) => this.wheel(dy))
     this.ctx.onFrame((dt) => this.frame(dt))
     this.ctx.onLang(() => {
       this.str = ipStrings(this.ctx.lang.get())
@@ -117,6 +118,8 @@ export abstract class IphoneApp {
   protected longPress(_x: number, _y: number): void {}
   protected drag(_x: number, _y: number, _sx: number, _sy: number): void {}
   protected dragEnd(_moved: boolean): void {}
+  /** 鼠标滚轮（dy>0 向下）：子类转给活跃 Scroller */
+  protected wheel(_dy: number): void {}
   protected frame(dt: number) {
     this.blink += dt
   }

@@ -41,20 +41,19 @@ export class LockScreen {
       // 来电锁屏（真机 1.0）：无大时钟，壁纸压暗 + 大姓名居中 + slide to answer
       scrim(s, 0, 0, 320, 480, C.BLACK, 2)
       statusBar(s, { dark: true, batteryPct: opts.batteryPct, clock: clockString(opts.now), ...opts.sb })
-      s.textCenter(160, 196, opts.name, { size: 34, font: F_BOLD(34), color: C.WHITE })
+      s.textCenter(160, 196, opts.name, { size: 34, font: F_BOLD(34), color: C.WHITE, shadow: true })
     } else {
       statusBar(s, { dark: true, batteryPct: opts.batteryPct, clock: clockString(opts.now), ...opts.sb })
-      // 大时钟（真机 1.0：视觉中心约在屏幕 1/3 处）
+      // 大时钟（真机 1.0：视觉中心约在屏幕 1/3 处），带深色投影保证壁纸上的可读性
       const clk = clockString(opts.now)
-      s.textCenter(160, 108, clk, { size: 60, font: F_BOLD(60), color: C.WHITE })
+      s.textCenter(160, 108, clk, { size: 60, font: F_BOLD(60), color: C.WHITE, shadow: true })
       // 日期
       const date = lockDateLine(opts.now, opts.lang, opts.str.months)
-      s.textCenter(160, 184, date, { size: 18, font: F_REG(18), color: C.WHITE })
+      s.textCenter(160, 184, date, { size: 18, font: F_REG(18), color: C.WHITE, shadow: true })
     }
 
-    // 滑动条
+    // 滑动条（真机 1.0：纯灰色胶囊轨，无描边横线）
     rr(s, TRACK_X, TRACK_Y, TRACK_W, 40, 20, C.SLIDER_TRACK)
-    rrStroke(s, TRACK_X, TRACK_Y, TRACK_W, 40, 20, C.GRAY2)
     // 标签（移动高光扫过文字）
     const label = opts.label ?? (opts.mode === 'answer' ? opts.str.slideAnswer : opts.str.unlock)
     this.shimmerText(s, label, TRACK_Y + 12, opts.t)

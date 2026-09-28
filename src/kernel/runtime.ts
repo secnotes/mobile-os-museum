@@ -34,6 +34,7 @@ export class AppRuntime {
       onDragEnd: (fn) => this.track(this.deps.input.subscribeDragEnd(fn)),
       onLongPress: (fn) => this.track(this.deps.input.subscribeLongPress(fn)),
       onSwipe: (fn) => this.track(this.deps.input.subscribeSwipe(fn)),
+      onWheel: (fn) => this.track(this.deps.input.subscribeWheel(fn)),
       onFrame: (fn) => this.track(this.deps.frames.add(fn)),
       every: (ms, f) => {
         const id = setInterval(f, ms)

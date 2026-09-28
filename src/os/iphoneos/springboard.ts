@@ -1,8 +1,8 @@
 import type { Screen } from '../../hal/screen'
-import { C } from './palette'
+import { C, R } from './palette'
 import { F_BOLD } from './fonts'
 import { badge as drawBadge } from './widgets'
-import { scrim, gloss } from './graphics'
+import { scrim, rrGrad } from './graphics'
 import { assets } from './assets'
 import type { IconDrawer } from './icons'
 
@@ -49,17 +49,14 @@ export function drawSpringboard(
     s.textCenter(x + (ICON >> 1), y + ICON + 3, app.name, {
       size: 12, font: F_BOLD(12), color: C.WHITE, maxWidth: 72,
     })
-    if (app.badge) {
-      const n = app.badge()
-      if (n > 0) drawBadge(s, x + ICON - 2, y + 2, n)
-    }
+    if (app.badge) drawBadgeOverlay(s, app, x, y, ICON)
     if (pressed && pressed.kind === 'grid' && pressed.i === i) {
       scrim(s, x, y, ICON, ICON, C.BLACK, 2)
     }
   })
   // 真机 1.0 只有一页主屏，无页点指示器（页点随 1.1.3 多屏桌面而来）
-  // Dock：真机 1.0 为灰色网纹（交叉点阵）磨砂底
-  dockMesh(s, 6, 391, 308, 87, 14)
+  // Dock：真机 1.0 为钛灰金属渐变底（非棋盘雪花），顶部 1px 高光
+  rrGrad(s, 6, 391, 308, 87, 14, R.DOCK)
   s.fillRect(10, 391, 300, 1, C.MESH_L)
   dock.forEach((app, i) => {
     const x = DOCK_X[i]!
@@ -67,10 +64,7 @@ export function drawSpringboard(
     s.textCenter(x + (DOCK_ICON >> 1), 455, app.name, {
       size: 12, font: F_BOLD(12), color: C.WHITE, maxWidth: 74,
     })
-    if (app.badge) {
-      const n = app.badge()
-      if (n > 0) drawBadge(s, x + DOCK_ICON - 2, DOCK_Y + 2, n)
-    }
+    if (app.badge) drawBadgeOverlay(s, app, x, DOCK_Y, DOCK_ICON)
     if (pressed && pressed.kind === 'dock' && pressed.i === i) {
       scrim(s, x, DOCK_Y, DOCK_ICON, DOCK_ICON, C.BLACK, 2)
     }
@@ -78,8 +72,8 @@ export function drawSpringboard(
 }
 
 /**
- * 绘制 app 图标：真机 PNG 优先（assets.icon，圆角与 gloss 已烘焙在 PNG 内，平滑缩放）；
- * 否则走程序化 IconDrawer，并在其上叠 gloss 玻璃高光（顶部 42% 亮带，真机 1.0 图标共性）。
+ * 绘制 app 图标：真机 PNG 优先（assets.icon，圆角与高光已烘焙在 PNG 内，平滑缩放）；
+ * 否则走程序化 IconDrawer（flat 扁平绘制，真机 1.0 图标本就无额外玻璃高光层）。
  */
 function drawAppIcon(s: Screen, app: AppEntry, x: number, y: number, u: number) {
   const png = app.iconPng ? assets.icon(app.iconPng) : undefined
@@ -88,21 +82,36 @@ function drawAppIcon(s: Screen, app: AppEntry, x: number, y: number, u: number) 
     return
   }
   app.icon(s, x, y, u)
-  const r = Math.max(1, Math.round((u / 57) * 12))
-  gloss(s, x, y, u, u, r, C.WHITE, 4)
-}
-function dockMesh(s: Screen, x: number, y: number, w: number, h: number, r: number) {
-  for (let dy = 0; dy < h; dy++) {
-    let inset = 0
-    if (dy < r || dy >= h - r) {
-      const cy = dy < r ? r - dy - 0.5 : dy - (h - r) + 0.5
-      inset = Math.round(r - Math.sqrt(Math.max(0, r * r - cy * cy)))
-    }
-    for (let dx = inset; dx < w - inset; dx++)
-      s.pset(x + dx, y + dy, ((dx + dy) & 1) === 0 ? C.MESH_L : C.MESH_D)
-  }
 }
 
+/**
+ * 角标 overlay：PNG 图标是 overlay 层（render 时盖在调色板 buf 之上），
+ * 若 badge 仍画到 buf 会被图标盖住（只剩 smooth 数字浮出，像"角标在图标后面"）。
+ * 故把整个 badge（红底+白边+数字）用 iconCanvas 渲染成透明底 canvas，
+ * 在 blit 图标之后作为 overlay 合成，确保角标居顶。按数字缓存避免每帧重算。
+ * (x,y,u) 与图标一致：badge 右上角，右边界对齐 x+u-2，中心 cy=y+2（与原 drawBadge 位置一致）。
+ */
+const badgeCache = new Map<string, HTMLCanvasElement>()
+function drawBadgeOverlay(s: Screen, app: AppEntry, x: number, y: number, u: number) {
+  const n = app.badge!()
+  if (n <= 0) return
+  const key = String(n)
+  let c = badgeCache.get(key)
+  if (!c) {
+    const text = n > 99 ? '…' : String(n)
+    const tw = s.measure(text, { size: 13, font: F_BOLD(13) })
+    const w = Math.max(20, tw + 10)
+    const BW = w + 6, BH = 24
+    c = s.iconCanvas((ms, ox, oy) => {
+      // cx=badge 右边界（画布右侧留 3px），cy=画布中心偏上 12
+      drawBadge(ms, ox + BW - 3, oy + 12, n)
+    }, BW, BH)
+    badgeCache.set(key, c)
+  }
+  const BW = c.width
+  // 还原原 drawBadge(s, x+u-2, y+2, n) 的几何：右边界=x+u-2，中心 cy=y+2
+  s.blit(c, x + u - 2 - (BW - 3), y + 2 - 12)
+}
 /** 点按命中 → 应用 id（'grid:x' / 'dock:x'），或 null */
 export function springboardHit(x: number, y: number): { kind: 'grid' | 'dock'; i: number } | null {
   // Dock

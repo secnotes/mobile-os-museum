@@ -12,6 +12,9 @@ export interface TextOpts {
   maxWidth?: number
   /** smooth 文本：是否带 1px 深色投影（白字压深底时开，与抽屉标签一致） */
   shadow?: boolean
+  /** 彩色模式下强制走阈值点阵（不走 smooth 抗锯齿）：状态栏等极小 UI 字用，
+   *  避免小字 AA 底排半透像素在深底上发灰、视觉上像被截断。 */
+  crisp?: boolean
 }
 
 export class Screen {
@@ -24,6 +27,8 @@ export class Screen {
   private bg: string
   private fg: string
   private fontFamily: string
+  /** 物理缩放（=scale*dpr），smooth 层用物理像素 1:1 合成，文字 AA 最锐利 */
+  private phys = 1
   /** 彩色模式：索引 → RGB；null 表示用底色 */
   private pal: Array<[number, number, number] | null> | null = null
   private bgRgb: [number, number, number] = [0, 0, 0]
@@ -84,6 +89,7 @@ export class Screen {
     this.fontFamily = opts.fontFamily ?? ''
     this.bgRgb = parseHex(this.bg)
     const dpr = Math.min(window.devicePixelRatio || 1, 2)
+    this.phys = this.scale * dpr
     canvas.width = Math.round(w * this.scale * dpr)
     canvas.height = Math.round(h * this.scale * dpr)
     // 自然尺寸 + 窄屏（手机浏览器）下随边框等比缩小，避免撑出机身
@@ -215,9 +221,8 @@ export class Screen {
     // 的 smooth 层，否则上一帧画在该处的文字（滚动/重绘时位置已变）会残留透出，与新帧
     // 文字重叠。使 smooth 文字获得与调色板文字一致的"被背景覆盖即清除"语义。
     if (this.smoothCvs && this.smoothDirty) {
-      const SS = Screen.SMOOTH_SS
       this.smoothCtx!.setTransform(1, 0, 0, 1, 0, 0)
-      this.smoothCtx!.clearRect(x * SS, y * SS, w * SS, h * SS)
+      this.smoothCtx!.clearRect(x * this.smoothScale, y * this.smoothScale, w * this.smoothScale, h * this.smoothScale)
     }
   }
 
@@ -282,9 +287,21 @@ export class Screen {
     opts: TextOpts = {},
   ): number {
     if (this.pal) {
-      this.textSmooth(x, y, str, opts)
-      const w = this.measure(str, opts)
-      return opts.maxWidth === undefined ? w : Math.min(w, opts.maxWidth)
+      // crisp：状态栏等极小 UI 字走阈值点阵，避免 AA 底排半透发灰像被截断
+      if (!opts.crisp) {
+        this.textSmooth(x, y, str, opts)
+        const w = this.measure(str, opts)
+        return opts.maxWidth === undefined ? w : Math.min(w, opts.maxWidth)
+      }
+      // crisp 路径：阈值化点阵直接写调色板索引（与单色机 textData 同源）
+      const d = this.textData(str, opts)
+      const ci = opts.color ?? 1
+      const mw = opts.maxWidth
+      for (let j = 0; j < d.h; j++)
+        for (let i = 0; i < d.w; i++) {
+          if (d.data[j * d.stride + i] && (mw === undefined || i < mw)) this.pset(x + i, y + j, ci)
+        }
+      return mw === undefined ? d.w : Math.min(d.w, mw)
     }
     const d = this.textData(str, opts)
     const ci = opts.color ?? 1
@@ -298,14 +315,14 @@ export class Screen {
 
   /** 以 cx 为中心绘制 */
   textCenter(cx: number, y: number, str: string, opts: TextOpts = {}) {
-    if (this.pal) { this.textCenterSmooth(cx, y, str, opts); return }
+    if (this.pal && !opts.crisp) { this.textCenterSmooth(cx, y, str, opts); return }
     const d = this.textData(str, opts)
     this.text(cx - Math.floor(d.w / 2), y, str, opts)
   }
 
   /** 以 x 为右边界右对齐绘制 */
   textRight(x: number, y: number, str: string, opts: TextOpts = {}) {
-    if (this.pal) { this.textRightSmooth(x, y, str, opts); return }
+    if (this.pal && !opts.crisp) { this.textRightSmooth(x, y, str, opts); return }
     const d = this.textData(str, opts)
     this.text(x - d.w, y, str, opts)
   }
@@ -336,20 +353,21 @@ export class Screen {
   }
 
   // ---------- smooth 文本叠加层 ----------
-  // 抽屉 buildDrawerChrome 的 2× 超采样 + smooth 下采样技术泛化到 Screen：
-  // 原生 fillText（带抗锯齿）画在 2× 离屏画布上，render 时以 imageSmoothing
-  // 缩回逻辑尺寸，绕开调色板缓冲的 1-bit 阈值化，文字达到与抽屉一致的 AA 清晰度。
+  // smooth 层用「整数倍超采样」渲染文字：smoothScale 取 ≥phys 的最小整数（如 iPhone
+  // scale=1.1 → phys=1.1 → smoothScale=2）。文字在该倍率下 fillText 光栅化到完整物理像素
+  // （非 1.1 子像素分数 → AA 不糊），render 时用 imageSmoothingQuality=high 缩到主画布物理尺寸。
   // 仅在显式调用 textSmooth* 时启用；单色机不调用即零开销。
-  private static readonly SMOOTH_SS = 2
   private smoothCvs: HTMLCanvasElement | null = null
   private smoothCtx: CanvasRenderingContext2D | null = null
   private smoothDirty = false
+  /** smooth 层整数超采样倍率（≥phys，文字光栅化锐利） */
+  private smoothScale = 1
 
   private initSmooth() {
-    const SS = Screen.SMOOTH_SS
+    this.smoothScale = Math.max(2, Math.ceil(this.phys - 0.001))
     this.smoothCvs = document.createElement('canvas')
-    this.smoothCvs.width = this.w * SS
-    this.smoothCvs.height = this.h * SS
+    this.smoothCvs.width = Math.round(this.w * this.smoothScale)
+    this.smoothCvs.height = Math.round(this.h * this.smoothScale)
     this.smoothCtx = this.smoothCvs.getContext('2d')!
   }
 
@@ -361,6 +379,11 @@ export class Screen {
     }
     // 单色模式：1=fg，0=bg
     return ci ? this.fg : this.bg
+  }
+
+  /** 调色板索引 → css 颜色（公开，供 graphics.gloss 等取色） */
+  colorOf(ci: number): string {
+    return this.smoothColor(ci)
   }
 
   /** 与 textData 一致的字体族选择（供 smooth 与阈值两条路径共用） */
@@ -377,17 +400,17 @@ export class Screen {
   /**
    * smooth 绘制文字（保留抗锯齿）。坐标语义与 text() 完全一致：基线对齐
    * textData 的离屏 (1, size+1) fillText → pset(x+i, y+j)，故替换 text() 不移位。
+   * 直接在物理像素 smoothCvs 上 fillText（transform=phys），AA 最锐利；
    * color 为调色板索引；shadow=true 时带 1px 深色投影（白字压深底用，与抽屉标签一致）。
    */
   textSmooth(x: number, y: number, str: string, opts: TextOpts = {}) {
     if (!this.smoothCvs) this.initSmooth()
     const g = this.smoothCtx!
-    const SS = Screen.SMOOTH_SS
     const hasHan = /[⺀-鿿　-〿＀-￯]/.test(str)
     const size = opts.size ?? (hasHan ? 12 : 9)
     const font = opts.font ?? this.fontFor(str, size)
     g.save()
-    g.setTransform(SS, 0, 0, SS, 0, 0)
+    g.setTransform(this.smoothScale, 0, 0, this.smoothScale, 0, 0)
     g.font = font
     g.textBaseline = 'alphabetic'
     if (opts.shadow) {
@@ -428,19 +451,56 @@ export class Screen {
    */
   clearSmooth(x: number, y: number, w: number, h: number) {
     if (!this.smoothCvs) return
-    const SS = Screen.SMOOTH_SS
     this.smoothCtx!.setTransform(1, 0, 0, 1, 0, 0)
-    this.smoothCtx!.clearRect(x * SS, y * SS, w * SS, h * SS)
+    this.smoothCtx!.clearRect(x * this.smoothScale, y * this.smoothScale, w * this.smoothScale, h * this.smoothScale)
+  }
+
+  /**
+   * 在 smooth 叠加层画一个顶部圆角矩形，纵向 alpha 渐变（glass 高光）：
+   * alphaTop→0 衰减，真机 1.0 导航栏/工具栏顶部玻璃光泽。用原生 AA 路径绘制，
+   * 无 Bayer 抖动散点（抖动在深底上呈雪花）。css 为颜色字符串，r 为顶部圆角半径。
+   */
+  glossSmooth(x: number, y: number, w: number, h: number, r: number, css: string, alphaTop: number) {
+    if (!this.smoothCvs) this.initSmooth()
+    const g = this.smoothCtx!
+    g.save()
+    g.setTransform(this.smoothScale, 0, 0, this.smoothScale, 0, 0)
+    const bandH = Math.max(2, Math.round(h * 0.42))
+    // 顶部圆角路径（仅顶角 r，底角方）
+    g.beginPath()
+    g.moveTo(x + r, y)
+    g.lineTo(x + w - r, y)
+    g.quadraticCurveTo(x + w, y, x + w, y + r)
+    g.lineTo(x + w, y + bandH)
+    g.lineTo(x, y + bandH)
+    g.lineTo(x, y + r)
+    g.quadraticCurveTo(x, y, x + r, y)
+    g.closePath()
+    g.clip()
+    // 纵向 alpha 渐变
+    const grad = g.createLinearGradient(0, y, 0, y + bandH)
+    grad.addColorStop(0, css.replace('rgb', 'rgba').replace(')', `,${alphaTop})`))
+    grad.addColorStop(1, css.replace('rgb', 'rgba').replace(')', ',0)'))
+    g.fillStyle = grad
+    g.fillRect(x, y, w, bandH)
+    g.restore()
+    this.smoothDirty = true
   }
 
   /** render 时把 smooth 叠加层合成到屏幕（在前景 overlay 之上，文字居顶） */
   private blitSmooth() {
     if (!this.smoothDirty || !this.smoothCvs) return
     const { ctx } = this
-    ctx.imageSmoothingEnabled = true
-    ctx.imageSmoothingQuality = 'high'
-    ctx.drawImage(this.smoothCvs, 0, 0, this.w, this.h)
+    // smoothCvs 以整数倍 smoothScale 渲染（≥phys），缩到主画布物理尺寸（w*phys × h*phys）。
+    // smoothScale=phys（Android scale=4 等整数）时为 1:1 无缩放；
+    // smoothScale>phys（iPhone phys=1.1→2）时高质量下采样，文字锐利。
+    const dw = Math.round(this.w * this.phys), dh = Math.round(this.h * this.phys)
+    ctx.setTransform(1, 0, 0, 1, 0, 0)
+    ctx.imageSmoothingEnabled = this.smoothScale !== this.phys
+    if (ctx.imageSmoothingEnabled) ctx.imageSmoothingQuality = 'high'
+    ctx.drawImage(this.smoothCvs, 0, 0, this.smoothCvs.width, this.smoothCvs.height, 0, 0, dw, dh)
     ctx.imageSmoothingEnabled = false
+    ctx.setTransform(this.phys, 0, 0, this.phys, 0, 0)
   }
 
   private textData(str: string, opts: { size?: number; font?: string; color?: number }): { data: Uint8Array; w: number; h: number; stride: number } {

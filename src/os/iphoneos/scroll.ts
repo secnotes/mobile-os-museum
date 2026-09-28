@@ -60,6 +60,21 @@ export class Scroller {
     this.animating = true // step() 里处理惯性/回弹
   }
 
+  /**
+   * 鼠标滚轮：dy>0 向下滚（内容向上、offset 增加）。即时滚动 + 触边橡皮筋回弹，
+   * 无抬手惯性（滚轮离散步进，真机滚轮手感）。与 onDrag 同走 applyRubber 边界。
+   */
+  wheel(dy: number) {
+    this.dragging = false
+    this.vel = 0
+    this.animTarget = null
+    let target = this.offset + dy
+    target = this.applyRubber(target)
+    this.offset = target
+    this.animating = target < 0 || target > this.maxScroll
+    this.redraw()
+  }
+
   /** 每帧推进；返回 true 表示仍在动 */
   step(dt: number): boolean {
     if (this.dragging) return false

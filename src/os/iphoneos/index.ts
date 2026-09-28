@@ -376,6 +376,8 @@ class IPhoneOS implements PhoneOS {
       return
     }
     if (this.state === 'app' && key === 'home') this.runtime.close()
+    // 桌面按 Home → 回锁屏（逐级返回：app→桌面→锁屏）
+    if (this.state === 'home' && key === 'home') this.enterLock()
   }
 
   // ---------- 触屏 ----------
@@ -575,9 +577,11 @@ class IPhoneOS implements PhoneOS {
   private stepZoom(dt: number) {
     this.zoomT += dt
     const p = Math.min(1, this.zoomT / IPhoneOS.ZOOM_DUR)
-    this.drawZoom(p)
-    if (p < 1) return
-    // 完成
+    if (p < 1) {
+      this.drawZoom(p)
+      return
+    }
+    // 完成：直接切到目标态并渲染其首帧，跳过缩放到图标尺寸的末帧（避免多余帧/闪烁）
     const id = this.zoomLaunchId
     this.zoomSnap = null
     this.zoomLaunchId = null
@@ -591,14 +595,14 @@ class IPhoneOS implements PhoneOS {
   }
 
   /**
-   * 绘制 zoom 过渡：把快照按 ease 缩放（open: 图标→全屏；close: 全屏→图标）。
-   * 黑底天然提供缩小时的淡出（快照缩小后四周为黑），无需额外 scrim。
+   * 绘制 zoom 过渡：快照从全屏缩向图标位置（ease 1→0）。
+   * open/close 都用同一方向——快照（open=Springboard、close=应用末帧）从当前
+   * 全屏状态缩入被点图标，黑底天然补四周边缘，首帧 ease=1 即全屏=当前画面，无突跳。
    */
   private drawZoom(p = 0) {
     const s = this.deps.screen
-    const ease = this.zoomDir === 'open' ? 1 - Math.pow(1 - p, 3) : Math.pow(p, 3)
+    const ease = 1 - p * p // 1(全屏) → 0(图标)，ease-out 快速缩入后收敛
     const r = this.zoomRect
-    // 图标中心/尺寸 → 全屏中心/尺寸 插值（open 时 ease 0→1）
     const icx = r.x + r.u / 2, icy = r.y + r.u / 2
     const fcx = W / 2, fcy = H / 2
     const cx = icx + (fcx - icx) * ease
@@ -895,6 +899,7 @@ class IPhoneOS implements PhoneOS {
   /** 关机画面：黑底 + slide to power off 滑条 + Cancel */
   private drawPowerOff() {
     const s = this.deps.screen
+    s.clearOverlays()
     const str = ipStrings(this.deps.lang.get())
     this.powerLocker.draw(s, {
       now: new Date(), t: this.tSecs, mode: 'unlock',
@@ -967,6 +972,7 @@ class IPhoneOS implements PhoneOS {
 
   private drawLock() {
     const s = this.deps.screen
+    s.clearOverlays()
     const str = ipStrings(this.deps.lang.get())
     this.locker.draw(s, {
       now: new Date(), t: this.tSecs, mode: 'unlock',
@@ -978,6 +984,7 @@ class IPhoneOS implements PhoneOS {
 
   private drawHome() {
     const s = this.deps.screen
+    s.clearOverlays()
     const str = ipStrings(this.deps.lang.get())
     drawSpringboard(s, this.gridEntries(str.apps), this.dockEntries(str.apps), this.pressedHit)
     statusBar(s, {
@@ -1015,6 +1022,7 @@ class IPhoneOS implements PhoneOS {
 
   private drawRinging() {
     const s = this.deps.screen
+    s.clearOverlays()
     const str = ipStrings(this.deps.lang.get())
     if (this.callUI === 'lock') {
       this.answerLocker.draw(s, {
@@ -1053,6 +1061,7 @@ class IPhoneOS implements PhoneOS {
 
   private drawInCall() {
     const s = this.deps.screen
+    s.clearOverlays()
     const str = ipStrings(this.deps.lang.get())
     s.fillRect(0, 0, W, H, C.BLACK)
     statusBar(s, {

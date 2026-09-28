@@ -186,6 +186,9 @@ class NotesApp extends IphoneApp {
   protected dragEnd() {
     this.scroller.onEnd()
   }
+  protected wheel(dy: number) {
+    if (this.view === 'edit') this.scroller.wheel(dy)
+  }
   protected frame(dt: number) {
     super.frame(dt)
     if (this.scroller.step(dt)) return

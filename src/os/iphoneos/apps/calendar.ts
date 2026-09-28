@@ -285,6 +285,9 @@ class CalendarApp extends IphoneApp {
   protected dragEnd() {
     this.listSc.onEnd()
   }
+  protected wheel(dy: number) {
+    if (this.view === 'list') this.listSc.wheel(dy)
+  }
 
   protected frame(dt: number) {
     if (this.listSc.step(dt)) return

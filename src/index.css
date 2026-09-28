@@ -1246,7 +1246,7 @@ button {
 
 /* 正面整块黑玻璃；内圈两层银灰金属包边表现铝合金边框 */
 .phone.iphone {
-  width: min(380px, 100%);
+  width: min(400px, 100%);
   border-radius: 26px;
   padding: 64px 24px 30px;
   background: linear-gradient(160deg, #101113 0%, #000000 60%);

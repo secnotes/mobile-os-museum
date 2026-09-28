@@ -34,31 +34,39 @@ export function statusBar(
     airplaneIcon(s, x, 3, C.ORANGE)
     x += 20
   } else {
-    // 信号柱 5 根（真机圆角小条：顶端圆角、底端平齐）
+    // 信号柱 5 根：真机圆角小条，由矮到高（3,5,7,9,11），宽 3、间距 1，
+    // 底边统一对齐 y=15，顶端圆角（2px 拱顶）。
+    const bars = [3, 5, 7, 9, 11]
+    const baseY = 15
     for (let i = 0; i < 5; i++) {
-      const bh = 4 + i * 2
-      const ty = SB_H - 4 - bh
-      s.fillRect(x + i * 4, ty + 1, 3, bh - 1, fg)
-      s.pset(x + i * 4 + 1, ty, fg)
+      const bh = bars[i]!
+      const bx = x + i * 4
+      const ty = baseY - bh
+      // 主体矩形（顶端留 1px 给圆角）
+      s.fillRect(bx, ty + 1, 3, bh - 1, fg)
+      // 顶端 2px 圆角（拱顶：中间高、两侧低）
+      s.pset(bx + 1, ty, fg)
+      if (bh >= 5) { s.pset(bx, ty + 1, fg); s.pset(bx + 2, ty + 1, fg) }
     }
     x += 22
-    s.text(x, 3, 'AT&T', { size: 12, font: F_BOLD(12), color: fg })
+    // 运营商/Wi-Fi/时钟/电池统一 12px smooth（物理像素 AA，清晰且底边对齐信号柱）
+    s.text(x, 4, 'AT&T', { size: 12, font: F_BOLD(12), color: fg })
     x += s.measure('AT&T', { size: 12, font: F_BOLD(12) }) + 6
     // Wi-Fi 已连接：Wi-Fi 图标；否则 EDGE "E"
     if (opts.wifi === false) {
-      s.text(x, 3, 'E', { size: 12, font: F_BOLD(12), color: fg })
+      s.text(x, 4, 'E', { size: 12, font: F_BOLD(12), color: fg })
     } else {
-      wifiIcon(s, x + 6, 17, fg)
+      wifiIcon(s, x + 6, SB_H - 5, fg)
     }
   }
 
-  // 居中时钟
-  s.textCenter(W >> 1, 3, opts.clock, { size: 13, font: F_BOLD(13), color: fg })
+  // 居中时钟（真机 1.0：粗体 12px，垂直居中状态栏）
+  s.textCenter(W >> 1, 4, opts.clock, { size: 12, font: F_BOLD(12), color: fg })
 
   // 蓝牙：真机只在开启时显示
-  if (opts.bluetooth === true && !opts.airplane) btIcon(s, W - 48, 3, fg)
+  if (opts.bluetooth === true && !opts.airplane) btIcon(s, W - 48, 4, fg)
 
-  // 右：电池（外框 + 电量）
+  // 右：电池（外框 + 电量），底边对齐 y=SB_H-5=15
   const bx = W - 30
   const by = 5
   s.fillRect(bx, by, 1, 11, fg)
@@ -67,8 +75,9 @@ export function statusBar(
   s.fillRect(bx, by + 10, 24, 1, fg)
   s.fillRect(bx + 25, by + 4, 2, 4, fg)
   const cells = Math.max(1, Math.round(opts.batteryPct / 100 * 20))
-  // 真机 1.0 状态栏电池：低电红，否则深色填充（充电才绿；HAL 无充电态，故默认深色）
-  const batColor = opts.batteryPct <= 20 ? C.RED : opts.dark ? C.GRAY5 : C.INK
+  // 真机 1.0 状态栏电池：低电红；满电/常态深底用白填充、浅底用深墨；
+  // 充电才绿（HAL 无充电态，故默认白/墨）。
+  const batColor = opts.batteryPct <= 20 ? C.RED : opts.dark || opts.onBar ? C.WHITE : C.INK
   s.fillRect(bx + 2, by + 2, Math.min(cells, 20), 7, batColor)
 }
 

@@ -400,6 +400,9 @@ class SettingsApp extends IphoneApp {
   protected dragEnd() {
     this.sc.onEnd()
   }
+  protected wheel(dy: number) {
+    if (this.view !== 'brightness') this.sc.wheel(dy)
+  }
 
   protected frame(dt: number) {
     super.frame(dt)

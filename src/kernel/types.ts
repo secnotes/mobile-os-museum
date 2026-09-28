@@ -94,6 +94,8 @@ export interface AppContext {
   onLongPress(fn: (x: number, y: number) => void): () => void
   /** 注册触屏滑动处理（Pivot 切换/纵向滚动，应用退出自动取消订阅） */
   onSwipe(fn: (dir: 'up' | 'down' | 'left' | 'right') => void): () => void
+  /** 注册鼠标滚轮（dy>0 向下滚，应用退出自动取消订阅） */
+  onWheel(fn: (dy: number, x: number, y: number) => void): () => void
   /** 注册每帧回调（dt 秒），返回取消函数 */
   onFrame(fn: (dt: number) => void): () => void
   /** 定时器，应用退出自动清理 */

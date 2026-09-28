@@ -28,11 +28,12 @@ function vnoise(x: number, y: number): number {
   return a + (b - a) * fx + (c - a) * fy + (a - b - c + d) * fx * fy
 }
 function fbm(x: number, y: number): number {
-  let v = 0, amp = 0.55, f = 1
-  for (let o = 0; o < 4; o++) {
+  // 3 octaves、较低基础频率：大陆呈更连贯的大块，避免高频噪点造成的“低分辨率”碎感
+  let v = 0, amp = 0.6, f = 1
+  for (let o = 0; o < 3; o++) {
     v += amp * vnoise(x * f, y * f)
     amp *= 0.5
-    f *= 2.05
+    f *= 2.1
   }
   return v
 }
@@ -65,12 +66,13 @@ export function drawEarthWallpaper(s: Screen) {
     const lat = dy / GR // -1..1
     for (let px = CX - half; px <= CX + half; px++) {
       const ux = (px - CX) / GR
-      // 球面经度拉伸（两极收窄感）
-      const n = fbm(ux * 3.0 + 11.7, lat * 3.0 + 4.3)
-      const cl = fbm(ux * 3.4 + 40.1, lat * 3.4 - 12.7)
+      // 球面经度拉伸（两极收窄感）；较低频率 → 连贯的大陆轮廓，无高频雪花
+      const n = fbm(ux * 2.0 + 11.7, lat * 2.0 + 4.3)
+      const cl = fbm(ux * 2.4 + 40.1, lat * 2.4 - 12.7)
       const pole = Math.abs(lat)
       let v: number
-      if (pole > 0.80 - n * 0.16 && ((px + py * 2) & 1) === 0) {
+      // 极地冰盖（实色，不抖动）
+      if (pole > 0.82 - n * 0.14) {
         v = C.EARTH_ICE
       } else if (n > 0.55) {
         // 陆地：纬度带 → 丛林/荒漠/苔原
@@ -80,11 +82,12 @@ export function drawEarthWallpaper(s: Screen) {
       } else {
         v = n < 0.36 ? C.EARTH_OC : C.EARTH_OC2
       }
-      // 边缘暗化（球面感）
+      // 边缘暗化（球面感，实色渐变带）
       const edge = Math.sqrt(ux * ux + lat * lat)
-      if (edge > 0.86 && ((px + py) & 1) === 0) v = C.EARTH_OC
-      // 云层（稀疏点灯近似半透明白）
-      if (cl > 0.62 && ((px * 3 + py) & 2) === 0) v = C.WHITE
+      if (edge > 0.9) v = C.EARTH_OC
+      else if (edge > 0.82) v = C.EARTH_OC2
+      // 云层（较稀疏的实色白云带，不抖动）
+      if (cl > 0.68) v = C.WHITE
       s.pset(px, py, v)
     }
   }
