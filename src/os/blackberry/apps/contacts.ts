@@ -116,9 +116,16 @@ export class ContactsApp extends BBApp {
     this.draw()
   }
 
+  /** 返回键：详情/编辑→列表；列表（根）→退出应用 */
+  protected onBack(): boolean {
+    if (this.mode === 'list') return false
+    this.mode = 'list'
+    this.draw()
+    return true
+  }
+
   private viewKey(k: DeviceKey) {
-    if (k === 'back') this.mode = 'list'
-    else if (k === 'call') {
+    if (k === 'call') {
       const c = this.list[this.sel]
       if (c) this.host.dial?.(c.tel, c.name)
       return
@@ -139,8 +146,6 @@ export class ContactsApp extends BBApp {
     } else if (k === 'ok') {
       this.save()
       return
-    } else if (k === 'back') {
-      this.mode = 'list'
     } else if (k === 'space') {
       this.setField(this.fieldKey() + ' ')
     } else if (/^[a-z0-9.,@-]$/.test(k)) {

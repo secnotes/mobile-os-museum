@@ -1749,7 +1749,9 @@ button {
 /* ============ BlackBerry Bold 9000 ============ */
 
 .phone.blackberry {
-  width: min(620px, 100%);
+  /* 机身宽 = canvas 720 + bezel padding 7×2 + 机身 padding 18×2 + border 2×2 = 774，
+     贴住屏幕无多余黑边；窄屏下 min(_,100%) 仍自适应（canvas width:100% 兜底） */
+  width: min(774px, 100%);
   border-radius: 22px;
   padding: 14px 18px 18px;
   border: 2px solid #c9ced4;

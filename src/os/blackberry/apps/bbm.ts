@@ -120,18 +120,23 @@ export class BBMApp extends BBApp {
     this.draw()
   }
 
+  /** 返回键：聊天→列表；写消息→回聊天；列表（根）→退出应用 */
+  protected onBack(): boolean {
+    if (this.mode === 'chat') { this.mode = 'list'; this.draw(); return true }
+    if (this.mode === 'compose') { this.mode = 'chat'; this.draw(); return true }
+    return false
+  }
+
   private chatKey(k: DeviceKey) {
     if (k === 'up') this.chatOff = Math.max(0, this.chatOff - 24)
     else if (k === 'down') this.chatOff += 24
     else if (k === 'ok') { this.mode = 'compose'; this.draft = '' }
-    else if (k === 'back') this.mode = 'list'
     else return
     this.draw()
   }
 
   private composeKey(k: DeviceKey) {
     if (k === 'clear') this.draft = this.draft.slice(0, -1)
-    else if (k === 'back') { this.mode = 'chat' }
     else if (k === 'ok') { this.send() ; return }
     else if (k === 'space') this.draft += ' '
     else if (/^[a-z0-9.,]$/.test(k)) this.draft += k

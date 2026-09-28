@@ -115,10 +115,18 @@ export class BrowserApp extends BBApp {
     } else if (this.mode === 'page') {
       if (k === 'up') this.pageOff = Math.max(0, this.pageOff - 40)
       else if (k === 'down') this.pageOff += 40
-      else if (k === 'back') this.mode = 'list'
       else return
     } else return
     this.draw()
+  }
+
+  /** 返回键：网页→书签列表；列表（根）→退出应用 */
+  protected onBack(): boolean {
+    if (this.mode !== 'page') return false
+    this.mode = 'list'
+    this.pageOff = 0
+    this.draw()
+    return true
   }
 
   protected menuItems(): MenuCommand[] {

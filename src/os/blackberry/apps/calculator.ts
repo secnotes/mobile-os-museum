@@ -53,10 +53,15 @@ export class CalculatorApp extends BBApp {
     } else if (k === 'clear') {
       if (this.fresh || this.entry.length <= 1) { this.entry = '0'; this.fresh = true }
       else this.entry = this.entry.slice(0, -1)
-    } else if (k === 'back') {
-      this.entry = '0'; this.acc = null; this.op = null; this.fresh = true
     } else return
     this.draw()
+  }
+
+  /** 返回键＝计算器清零（真机 Back 在此应用内保留清零语义，不退出） */
+  protected onBack(): boolean {
+    this.entry = '0'; this.acc = null; this.op = null; this.fresh = true
+    this.draw()
+    return true
   }
 
   private digit(d: string) {

@@ -73,6 +73,8 @@ const APP_ORDER = [
 const ICON_SLOT = 52
 const DOCK_TOP = 26
 const DOCK_VIEW = 256
+/** 顶部状态栏高度（drawStatus 的高光横幅），桌面内容裁剪下沿 */
+const SB_H = 22
 
 /** 声音情景（BB OS「Profiles」：Normal/Loud/Vibrate/Quiet/Silent） */
 type SoundProfile = 'normal' | 'loud' | 'vibrate' | 'quiet' | 'silent'
@@ -898,10 +900,10 @@ class BlackBerryOS implements PhoneOS {
       if (last) s.text(290, y, last.text, { size: 14, color: C.G1, maxWidth: 180 })
     })
 
-    // 左侧图标栏
+    // 左侧图标栏（顶部裁剪到状态栏下沿：图标/标签绝不覆盖顶部状态栏）
     for (let i = 0; i < APP_ORDER.length; i++) {
       const slotY = DOCK_TOP + i * ICON_SLOT - this.dockOff
-      if (slotY < -ICON_SLOT || slotY > 300) continue
+      if (slotY < SB_H || slotY > 300) continue
       const id = APP_ORDER[i]!
       if (i === this.homeSel) {
         rrStroke(s, 3, slotY + 2, 46, 46, 9, C.G7)
@@ -910,8 +912,11 @@ class BlackBerryOS implements PhoneOS {
       drawIcon(s, id, 7, slotY + 6, 40)
     }
     // 选中项名称
-    s.text(58, DOCK_TOP + this.homeSel * ICON_SLOT - this.dockOff + 16,
-      this.str.apps[APP_ORDER[this.homeSel]!]!, { size: 13, color: C.WHITE, maxWidth: 90 })
+    const labelY = DOCK_TOP + this.homeSel * ICON_SLOT - this.dockOff + 16
+    if (labelY >= SB_H) {
+      s.text(58, labelY,
+        this.str.apps[APP_ORDER[this.homeSel]!]!, { size: 13, color: C.WHITE, maxWidth: 90 })
+    }
 
     if (this.toast) s.textCenter(240, 296, this.toast, { size: 18, color: C.GOLD })
 

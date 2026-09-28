@@ -104,9 +104,16 @@ abstract class NoteBase extends BBApp {
     this.draw()
   }
 
+  /** 返回键：编辑→列表；列表（根）→退出应用 */
+  protected onBack(): boolean {
+    if (this.mode === 'list') return false
+    this.mode = 'list'
+    this.draw()
+    return true
+  }
+
   private editKey(k: DeviceKey) {
     if (k === 'clear') this.editing = this.editing.slice(0, -1)
-    else if (k === 'back') { this.mode = 'list' }
     else if (k === 'ok') { this.save() ; return }
     else if (k === '#') this.editing += '\n'
     else if (k === 'space') this.editing += ' '

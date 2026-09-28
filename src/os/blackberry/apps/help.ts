@@ -32,7 +32,6 @@ export class HelpApp extends BBApp {
   protected onKeyApp(k: DeviceKey, _rep: boolean) {
     if (k === 'up') this.off = Math.max(0, this.off - 22)
     else if (k === 'down') this.off += 22
-    else if (k === 'back') this.ctx.exit()
     else return
     this.draw()
   }

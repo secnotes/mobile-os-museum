@@ -134,11 +134,17 @@ export class MessagesApp extends BBApp {
     this.ensureVisible(this.sel, 44, 36, 284, (o) => { this.listOff = o })
   }
 
+  /** 返回键：会话→列表；写短信→丢弃回会话；列表（根）→退出应用 */
+  protected onBack(): boolean {
+    if (this.mode === 'thread') { this.mode = 'list'; this.draw(); return true }
+    if (this.mode === 'compose') { this.discardCompose(); this.draw(); return true }
+    return false
+  }
+
   private threadKey(k: DeviceKey) {
     if (k === 'up') this.threadOff = Math.max(0, this.threadOff - 24)
     else if (k === 'down') this.threadOff += 24
     else if (k === 'ok') { this.mode = 'compose'; this.draft = '' }
-    else if (k === 'back') { this.mode = 'list'; return }
     else return
     this.draw()
   }
@@ -146,9 +152,6 @@ export class MessagesApp extends BBApp {
   private composeKey(k: DeviceKey, _rep: boolean) {
     if (k === 'clear') {
       this.draft = this.draft.slice(0, -1)
-    } else if (k === 'back') {
-      this.discardCompose()
-      return
     } else if (k === 'ok') {
       this.sendDraft()
       return

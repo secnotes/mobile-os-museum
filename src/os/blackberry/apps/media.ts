@@ -175,7 +175,26 @@ export class MediaApp extends BBApp {
     else if (this.mode === 'pictures') this.picturesKey(k)
     else if (this.mode === 'videos') this.videosKey(k)
     else if (this.mode === 'voices') this.voicesKey(k)
-    else if (this.mode === 'videoPlay') { if (k === 'back') this.mode = 'videos'; this.draw() }
+  }
+
+  /**
+   * 返回键：录音中先停止录音；视频播放/各媒体页→文件夹；文件夹（根）→退出应用。
+   */
+  protected onBack(): boolean {
+    if (this.mode === 'voices' && this.recordingAt >= 0) {
+      const dur = Math.max(1, Math.round(this.tSec - this.recordingAt))
+      const note: VoiceNote = { id: Date.now(), dur }
+      this.voices.push(note)
+      void this.ctx.store.set('voices', this.voices)
+      this.recordingAt = -1
+      this.draw()
+      return true
+    }
+    if (this.mode === 'videoPlay') { this.mode = 'videos'; this.draw(); return true }
+    if (this.mode === 'folders') return false
+    this.mode = 'folders'
+    this.draw()
+    return true
   }
 
   private foldersKey(k: DeviceKey) {
@@ -188,8 +207,7 @@ export class MediaApp extends BBApp {
       const modes = ['music', 'pictures', 'videos', 'voices'] as const
       this.mode = modes[this.sel]!
       this.sel = 0
-    } else if (k === 'back') { this.ctx.exit() ; return }
-    else return
+    } else return
     this.draw()
   }
 
@@ -200,19 +218,17 @@ export class MediaApp extends BBApp {
     } else if (k === 'ok') {
       if (this.playing) this.stopMusic()
       else this.startMusic()
-    } else if (k === 'back') { this.mode = 'folders' }
-    else return
+    } else return
     this.draw()
   }
 
   private picturesKey(k: DeviceKey) {
     const n = this.photos.length
-    if (!n) { if (k === 'back') this.mode = 'folders'; this.draw(); return }
+    if (!n) return
     if (k === 'left') this.sel = (this.sel + n - 1) % n
     else if (k === 'right') this.sel = (this.sel + 1) % n
     else if (k === 'up') this.sel = (this.sel + n - 4) % n
     else if (k === 'down') this.sel = (this.sel + 4) % n
-    else if (k === 'back') this.mode = 'folders'
     else return
     this.draw()
   }
@@ -224,14 +240,13 @@ export class MediaApp extends BBApp {
     else if (k === 'ok') {
       this.videoAt = this.tSec
       this.mode = 'videoPlay'
-    } else if (k === 'back') this.mode = 'folders'
-    else return
+    } else return
     this.draw()
   }
 
   private voicesKey(k: DeviceKey) {
     if (this.recordingAt >= 0) {
-      if (k === 'ok' || k === 'back') {
+      if (k === 'ok') {
         const dur = Math.max(1, Math.round(this.tSec - this.recordingAt))
         const note: VoiceNote = { id: Date.now(), dur }
         this.voices.push(note)
@@ -240,8 +255,7 @@ export class MediaApp extends BBApp {
       }
     } else if (k === 'ok') {
       this.recordingAt = this.tSec
-    } else if (k === 'back') { this.mode = 'folders' }
-    else return
+    } else return
     this.draw()
   }
 

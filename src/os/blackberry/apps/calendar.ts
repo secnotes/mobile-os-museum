@@ -127,10 +127,17 @@ export class CalendarApp extends BBApp {
     this.draw()
   }
 
+  /** 返回键：日程详情→月视图；月视图（根）→退出应用 */
+  protected onBack(): boolean {
+    if (this.mode !== 'day') return false
+    this.mode = 'month'
+    this.draw()
+    return true
+  }
+
   private dayKey(k: DeviceKey) {
     if (k === 'up') this.dayOff = Math.max(0, this.dayOff - 30)
     else if (k === 'down') this.dayOff += 30
-    else if (k === 'back') this.mode = 'month'
     else return
     this.draw()
   }

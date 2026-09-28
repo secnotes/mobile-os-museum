@@ -130,6 +130,11 @@ export abstract class BBApp {
   protected onStart(): void | Promise<void> {}
   protected abstract draw(): void
   protected onKeyApp(_k: DeviceKey, _rep: boolean): void {}
+  /**
+   * 返回键（真机 Back 键）：子视图内返回上一级时重写并返回 true；
+   * 返回 false（根视图）由基类统一退出应用回主屏。
+   */
+  protected onBack(): boolean { return false }
   protected onTapApp(_x: number, _y: number): void {}
   protected drag(_x: number, _y: number, _sx: number, _sy: number): void {}
   protected dragEnd(): void {}
@@ -151,6 +156,10 @@ export abstract class BBApp {
     }
     if (k === 'menu' && !rep) {
       this.openMenu()
+      return
+    }
+    if (k === 'back' && !rep) {
+      if (!this.onBack()) this.ctx.exit()
       return
     }
     this.onKeyApp(k, rep)

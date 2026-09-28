@@ -136,7 +136,7 @@ export class ClockApp extends BBApp {
     } else if (k === 'ok') {
       this.alarm.on = !this.alarm.on
       void this.host.saveAlarm(this.alarm)
-    } else if (k === 'call' || k === 'back') {
+    } else if (k === 'call') {
       this.alarmField = (this.alarmField + 1) % 2
     }
   }
@@ -150,10 +150,24 @@ export class ClockApp extends BBApp {
         this.swAt = this.tSec
         this.swRun = true
       }
-    } else if (k === 'clear' || k === 'back') {
+    } else if (k === 'clear') {
       this.swRun = false
       this.swAccum = 0
     }
+  }
+
+  /** 返回键：闹钟页切字段、秒表页归零（沿用真机 Back 语义）；时钟页退出应用 */
+  protected onBack(): boolean {
+    if (this.mode === 'alarm') {
+      this.alarmField = (this.alarmField + 1) % 2
+    } else if (this.mode === 'stop') {
+      this.swRun = false
+      this.swAccum = 0
+    } else {
+      return false
+    }
+    this.draw()
+    return true
   }
 
   protected menuItems(): MenuCommand[] {

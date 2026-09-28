@@ -113,12 +113,19 @@ export class OptionsApp extends BBApp {
   protected onKeyApp(k: DeviceKey, _rep: boolean) {
     if (this.mode === 'main') this.mainKey(k)
     else if (this.mode === 'ring') this.ringKey(k)
-    else if (this.mode === 'about') { if (k === 'back') this.mode = 'main'; this.draw() }
+    else if (this.mode === 'about') return
     else if (this.mode === 'confirm') {
-      if (k === 'ok') { void this.doReset() }
-      else if (k === 'back') this.mode = 'main'
-      this.draw()
+      if (k === 'ok') { void this.doReset(); this.draw() }
     }
+  }
+
+  /** 返回键：铃声/关于/恢复出厂确认→主列表；主列表（根）→退出应用 */
+  protected onBack(): boolean {
+    if (this.mode === 'main') return false
+    this.mode = 'main'
+    this.sel = 0
+    this.draw()
+    return true
   }
 
   private mainKey(k: DeviceKey) {
@@ -155,9 +162,6 @@ export class OptionsApp extends BBApp {
       this.ringSel = this.sel
       void this.host.setRingtone(this.sel)
       this.preview()
-    } else if (k === 'back') {
-      this.mode = 'main'
-      this.sel = 0
     } else return
     this.draw()
   }
