@@ -20,13 +20,15 @@ import { gamesApp } from './apps/games'
 import { wpStrings } from './strings'
 import { C, ACCENTS } from './palette'
 import { assets } from './assets'
+import { loadStockBitmaps } from '../stockPhotos'
 import { RINGTONES, SMS_SOUNDS, ALARM_SOUNDS, UNLOCK_CLICK, playSound, flipWhoosh } from './ringtones'
 import { loadContacts, type Contact, type CallEntry } from '../../scenario/data'
 import {
   W, H, TRAY_H, F_LIGHT, F_REG, F_SEMI, tray, trayExpandedStrip,
   peekTray, onTrayChange, trayShown,
-  glyphPhone, glyphMessage, glyphPerson, glyphCamera, glyphAlarm, glyphSettings,
+  glyphPhone, glyphMessage, glyphPerson, glyphCamera, glyphAlarm, glyphSettings, glyphHeadphones,
 } from './ui'
+import { maskArrow } from './glyphBitmaps'
 import { Fx, morphOpen, morphClose, slideOpen, slideClose, unlockRise, type Rect } from './anim'
 import { getWallpaper } from './wallpaper'
 
@@ -49,7 +51,7 @@ const GUTTER = 12
 const WIDE_W = SQUARE * 2 + GUTTER // 358
 const TILES_TOP = 92
 /** 右侧黑槽圆心 */
-const ARROW = { x: LEFT + WIDE_W + (W - LEFT - WIDE_W) / 2, y: TILES_TOP + 18, r: 27 }
+const ARROW = { x: LEFT + WIDE_W + (W - LEFT - WIDE_W) / 2, y: TILES_TOP + 22, r: 21 } // r 仅用于点按命中（位图 41×41）
 
 /** 应用列表行：图标 62，行高 74，分组标题 52 */
 const LIST_TOP = TRAY_H + 8
@@ -74,59 +76,68 @@ interface PlacedTile extends TileDef {
 }
 
 /**
- * 默认固定到开始屏的瓷贴（仿真机布局）：
- * Phone/People · Messaging/IE · Calendar 宽 · Pictures 宽 · Music/Games · Alarms/Settings。
+ * 默认固定到开始屏的瓷贴（仿真机 Lumia 800 布局）：
+ * 真机 WP7.5 中方贴统一 173²，宽贴仅限微软/OEM 枢纽 —— 图片、音乐+视频是宽贴，
+ * 日历是方贴。Phone/People · Messaging/IE · Calendar · Pictures 宽 · Music+Videos 宽 · Games · Alarms/Settings。
  */
 const DEFAULT_PINS: Array<{ id: string; wide?: boolean }> = [
   { id: 'phone' },
   { id: 'contacts' },
   { id: 'messages' },
   { id: 'ie' },
-  { id: 'calendar', wide: true },
+  { id: 'calendar' },
   { id: 'pictures', wide: true },
-  { id: 'music' },
+  { id: 'music', wide: true },
   { id: 'games' },
   { id: 'clock' },
   { id: 'settings' },
 ]
 
-/** 瓷贴正面字形（居中白图标） */
-function tileGlyph(s: import('../../hal/screen').Screen, app: MiniApp, cx: number, cy: number, u: number) {
+/** 瓷贴正面字形（居中白图标；bg 供需要"缺口透出底色"的徽标用，如 Xbox 球的 X） */
+function tileGlyph(s: import('../../hal/screen').Screen, app: MiniApp, cx: number, cy: number, u: number, bg: number = C.BLACK) {
   switch (app.id) {
     case 'phone': glyphPhone(s, cx, cy, u, C.WHITE); break
-    case 'messages': glyphMessage(s, cx, cy, u, C.WHITE); break
+    case 'messages': glyphMessage(s, cx, cy, u, C.WHITE, bg); break
     case 'contacts': glyphPerson(s, cx, cy, u, C.WHITE); break
-    case 'camera': glyphCamera(s, cx, cy, u, C.WHITE); break
-    case 'clock': glyphAlarm(s, cx, cy, u, C.WHITE); break
+    case 'camera': glyphCamera(s, cx, cy, u, C.WHITE, bg); break
+    case 'clock': glyphAlarm(s, cx, cy, u, C.WHITE, bg); break
     case 'settings': glyphSettings(s, cx, cy, u, C.WHITE); break
     case 'calculator':
-      s.textCenter(cx, cy - 24, '=', { size: Math.round(u * 0.8), font: F_SEMI(Math.round(u * 0.8)), color: C.WHITE })
+      s.textCenterV(cx, cy, '=', { size: Math.round(u * 0.8), font: F_SEMI(Math.round(u * 0.8)), color: C.WHITE })
       break
     case 'notes':
       for (let i = -1; i <= 1; i++)
         s.fillRect(cx - u * 0.22, cy + i * u * 0.16 - 3, u * 0.44, 5, C.WHITE)
       break
     case 'calendar':
-      s.textCenter(cx, cy - 24, String(new Date().getDate()), {
+      s.textCenterV(cx, cy, String(new Date().getDate()), {
         size: Math.round(u * 0.62), font: F_SEMI(Math.round(u * 0.62)), color: C.WHITE,
       })
       break
     case 'ie':
       // 真机 IE 瓷贴为环形 e
-      s.textCenter(cx, cy - 20, 'e', { size: Math.round(u * 0.9), font: F_SEMI(Math.round(u * 0.9)), color: C.WHITE })
+      s.textCenterV(cx, cy, 'e', { size: Math.round(u * 0.9), font: F_SEMI(Math.round(u * 0.9)), color: C.WHITE })
       break
-    case 'pictures':
-      // 山 + 太阳的极简标
-      s.fillRect(cx - u * 0.3, cy - u * 0.1, u * 0.6, 4, C.WHITE)
-      s.fillRect(cx - u * 0.22, cy + u * 0.06, 5, u * 0.18, C.WHITE)
-      s.fillRect(cx + u * 0.18, cy + u * 0.06, 5, u * 0.18, C.WHITE)
-      s.fillRect(cx + u * 0.13, cy - u * 0.27, u * 0.12, u * 0.12, C.WHITE)
+    case 'pictures': {
+      // 风景照标：圆日 + 双山峰折线
+      const sr = Math.round(u * 0.09)
+      for (let dy = -sr; dy <= sr; dy++)
+        for (let dx = -sr; dx <= sr; dx++)
+          if (dx * dx + dy * dy <= sr * sr) s.pset(cx - Math.round(u * 0.16) + dx, cy - Math.round(u * 0.16) + dy, C.WHITE)
+      const px = (f: number) => Math.round(cx + f * u)
+      const py = (f: number) => Math.round(cy + f * u)
+      s.line(px(-0.34), py(0.24), px(-0.12), py(-0.08), C.WHITE)
+      s.line(px(-0.12), py(-0.08), px(0.02), py(0.08), C.WHITE)
+      s.line(px(0.02), py(0.08), px(0.16), py(-0.18), C.WHITE)
+      s.line(px(0.16), py(-0.18), px(0.34), py(0.24), C.WHITE)
       break
+    }
     case 'search':
-      s.textCenter(cx, cy - 20, '⌕', { size: Math.round(u * 0.95), font: F_LIGHT(Math.round(u * 0.95)), color: C.WHITE })
+      s.textCenterV(cx, cy, '⌕', { size: Math.round(u * 0.95), font: F_LIGHT(Math.round(u * 0.95)), color: C.WHITE })
       break
     case 'music':
-      s.textCenter(cx, cy - 20, '♪', { size: Math.round(u * 0.85), font: F_SEMI(Math.round(u * 0.85)), color: C.WHITE })
+      // 真机音乐+视频 hub 为白色耳机标
+      glyphHeadphones(s, cx, cy, u, C.WHITE)
       break
     case 'marketplace':
       // 购物袋：方袋 + 提手
@@ -136,14 +147,20 @@ function tileGlyph(s: import('../../hal/screen').Screen, app: MiniApp, cx: numbe
       s.fillRect(cx + u * 0.11, cy - u * 0.26, 4, u * 0.16, C.WHITE)
       s.fillRect(cx - u * 0.13, cy - u * 0.26, u * 0.26, 4, C.WHITE)
       break
-    case 'games':
-      // 游戏手柄极简标：四个功能点 + 握体线
-      s.fillRect(cx - u * 0.28, cy - u * 0.1, u * 0.56, 4, C.WHITE)
-      s.fillRect(cx - u * 0.2, cy + u * 0.14, 8, 8, C.WHITE)
-      s.fillRect(cx + u * 0.14, cy - u * 0.24, 8, 8, C.WHITE)
-      s.fillRect(cx + u * 0.14, cy - u * 0.08, 8, 8, C.WHITE)
-      s.fillRect(cx + u * 0.28, cy - u * 0.16, 8, 8, C.WHITE)
+    case 'games': {
+      // Xbox 球徽（真机游戏枢纽贴）：绿圆球 + X 缺口（缺口透出底色）
+      const r = Math.round(u * 0.34)
+      for (let dy = -r; dy <= r; dy++)
+        for (let dx = -r; dx <= r; dx++)
+          if (dx * dx + dy * dy <= r * r) s.pset(cx + dx, cy + dy, C.GREEN)
+      const t = Math.max(4, Math.round(u * 0.13))
+      const half = Math.round(r * 0.58)
+      for (let i = -half; i <= half; i++) {
+        s.fillRect(cx + i - (t >> 1), cy + i - (t >> 1), t, t, bg)
+        s.fillRect(cx + i - (t >> 1), cy - i - (t >> 1), t, t, bg)
+      }
       break
+    }
   }
 }
 
@@ -238,6 +255,8 @@ class WP7OS implements PhoneOS {
   /** 应用来源（从列表启动时，返回到列表）/ Start 键强制回开始屏 */
   private launchFrom: 'home' | 'list' = 'home'
   private forceHome = false
+  /** 锁屏上按电源熄屏（真机短按电源键的行为；任意键/再按电源亮屏回锁屏） */
+  private screenOff = false
 
   private runtime: AppRuntime
   private fx: Fx
@@ -262,11 +281,17 @@ class WP7OS implements PhoneOS {
     void assets.loadAll(this.deps.audio).then(() => {
       if (this.state !== 'off' && this.state !== 'boot') this.draw()
     })
+    // 预加载相册素材照片（首启即可用，避免相册打开时黑图）
+    void loadStockBitmaps().then(() => {
+      if (this.state !== 'off' && this.state !== 'boot') this.draw()
+    })
     this.watchStore()
-    this.offs.push(this.deps.input.subscribe((k) => this.onInput(k)))
+    this.offs.push(this.deps.input.subscribe((k, rep) => this.onInput(k, rep)))
     this.offs.push(this.deps.input.subscribeTap((x, y) => this.onTap(x, y)))
     this.offs.push(this.deps.input.subscribeTapUp((x, y) => this.onTapUp(x, y)))
     this.offs.push(this.deps.input.subscribeSwipe((dir) => this.onSwipe(dir)))
+    // 鼠标滚轮：桌面/应用列表滚动（真机为触屏上下滑动）
+    this.offs.push(this.deps.input.subscribeWheel((dy) => this.onWheel(dy)))
     this.offs.push(this.deps.lang.onChange(() => this.draw()))
     // 托盘唤出/自动收回时重绘系统界面（应用自行注册 onTrayChange）
     this.offs.push(onTrayChange(() => {
@@ -319,6 +344,7 @@ class WP7OS implements PhoneOS {
       if (!pending) return
       out.push({ ...pending, x: LEFT, y, w: SQUARE, h: SQUARE })
       pending = null
+      y += SQUARE + GUTTER
     }
     for (const d of defs) {
       if (d.wide) {
@@ -364,10 +390,23 @@ class WP7OS implements PhoneOS {
 
   // ---------- 电源 / 按键 ----------
 
-  private onInput(key: DeviceKey) {
+  private onInput(key: DeviceKey, rep = false) {
     if (key === 'power') {
+      // 真机 Lumia 800：短按电源键 = 锁屏（锁屏上再按 = 熄屏/亮屏），按住不放（键重复）才关机
       if (!this.powered) this.boot()
-      else this.shutdown()
+      else if (rep) this.shutdown()
+      else if (this.state === 'shutdown') return
+      else if (this.screenOff) this.wakeScreen()
+      else if (this.state === 'lock') this.sleepScreen()
+      else if (this.state === 'app') {
+        this.state = 'lock'
+        this.runtime.close()
+      } else this.enterLock()
+      return
+    }
+    // 熄屏时任意键只亮屏回锁屏，不触发动作
+    if (this.screenOff) {
+      this.wakeScreen()
       return
     }
     // 关机时按挂断/开始键唤醒（与 G1 的红色挂断键唤醒同理，方便键盘操作）
@@ -411,7 +450,9 @@ class WP7OS implements PhoneOS {
         if (key === 'ok' || key === 'menu') this.unlock()
         return
       case 'home':
-        if (key === 'ok' || key === 'menu') this.openList()
+        // 真机：开始屏按返回键退到锁屏
+        if (key === 'back') this.enterLock()
+        else if (key === 'ok' || key === 'menu') this.openList()
         return
       case 'list':
         if (this.jumpOpen && (key === 'back' || key === 'ok' || key === 'menu')) {
@@ -439,6 +480,7 @@ class WP7OS implements PhoneOS {
     }
     this.downTile = null
     this.trayExpanded = false
+    if (this.screenOff) { this.wakeScreen(); return }
     if (!this.powered || this.alarmRing || this.incomingRing || this.fx.busy) return
     if (this.state === 'lock' && dir === 'up') {
       this.unlock()
@@ -468,8 +510,24 @@ class WP7OS implements PhoneOS {
     }
   }
 
+  /** 鼠标滚轮：桌面/应用列表翻页滚动（方向与触屏滑动一致：下滚=内容上移） */
+  private onWheel(dy: number) {
+    if (this.screenOff) { this.wakeScreen(); return }
+    if (!this.powered || this.alarmRing || this.incomingRing || this.fx.busy) return
+    if (this.state === 'home') {
+      this.homeScroll += dy > 0 ? 300 : -300
+      this.clampHomeScroll()
+      this.draw()
+    } else if (this.state === 'list') {
+      this.listScroll += dy > 0 ? 300 : -300
+      this.clampListScroll()
+      this.draw()
+    }
+  }
+
   /** 触屏点按（系统层界面；应用内的点按由应用处理） */
   private onTap(x: number, y: number) {
+    if (this.screenOff) { this.wakeScreen(); return }
     if (!this.powered || this.fx.busy) return
     if (this.alarmRing) {
       // 点“关闭闹钟”条
@@ -770,7 +828,22 @@ class WP7OS implements PhoneOS {
 
   private enterLock() {
     this.state = 'lock'
+    this.screenOff = false
     this.draw()
+  }
+
+  /** 熄屏：锁屏状态下短按电源键（真机行为） */
+  private sleepScreen() {
+    this.screenOff = true
+    const s = this.deps.screen
+    s.clear()
+    s.render()
+  }
+
+  /** 亮屏：回锁屏界面 */
+  private wakeScreen() {
+    this.screenOff = false
+    this.enterLock()
   }
 
   /** 上滑后：设了 PIN 先进密码输入，否则直接解锁 */
@@ -1024,9 +1097,9 @@ class WP7OS implements PhoneOS {
     const tick = () => {
       this.timers.push(setTimeout(tick, 9000 + Math.random() * 6000))
       if (!this.powered || this.state !== 'home' || this.fx.busy || this.pinMode) return
-      // 只有信息/电话/闹钟贴有可看的背面
+      // 有内容背面的贴：通信类（计数/下一项）+ 图片（照片轮播）+ 游戏（Xbox 资料卡）
       const candidates = this.pins.filter((t) =>
-        ['messages', 'phone', 'clock', 'contacts', 'calendar'].includes(t.app.id))
+        ['messages', 'phone', 'clock', 'contacts', 'calendar', 'pictures', 'games'].includes(t.app.id))
       const t = candidates[Math.floor(Math.random() * candidates.length)]
       if (t) void this.flipTile(t)
     }
@@ -1217,6 +1290,7 @@ class WP7OS implements PhoneOS {
   // ---------- 绘制 ----------
 
   private draw() {
+    if (this.screenOff) return // 熄屏中：保持黑屏，亮屏时由 wakeScreen 重绘
     const s = this.deps.screen
     switch (this.state) {
       case 'off':
@@ -1306,17 +1380,10 @@ class WP7OS implements PhoneOS {
     s.render()
   }
 
-  /** 右侧槽：圆形描边 + 右箭头（Mango 开始屏进入应用列表入口） */
+  /** 右侧槽：圆圈 + 右箭头（Mango 开始屏进入应用列表入口）。
+   *  直接用真机字形位图（~/a.png 提取的 41×41 掩码，见 glyphBitmaps.ts）。 */
   private drawArrow() {
-    const s = this.deps.screen
-    const { x, y, r } = ARROW
-    // 圆环（逐点描）
-    for (let a = 0; a < Math.PI * 2; a += 0.02)
-      s.pset(Math.round(x + Math.cos(a) * r), Math.round(y + Math.sin(a) * r), C.WHITE)
-    // 箭头：横杠 + 头
-    s.fillRect(x - 11, y - 2, 18, 4, C.WHITE)
-    for (let i = 0; i < 9; i++)
-      s.fillRect(x + 4 + i, y - 8 + i, 4, 4, C.WHITE)
+    maskArrow(this.deps.screen, ARROW.x, ARROW.y, C.WHITE)
   }
 
   private drawTile(t: PlacedTile, lang: 'zh' | 'en') {
@@ -1324,13 +1391,20 @@ class WP7OS implements PhoneOS {
     const x = t.x
     const y = t.y - this.homeScroll
     if (y + t.h < 0 || y > H) return
-    s.fillRect(x, y, t.w, t.h, this.accent())
-    const name = (lang === 'en' ? t.app.nameEn : undefined) ?? t.app.name
+    // Xbox LIVE 游戏贴真机是黑底绿徽，其余用强调色
+    const darkTile = t.app.id === 'games'
+    s.fillRect(x, y, t.w, t.h, darkTile ? C.BLACK : this.accent())
     if (this.flipped.has(t.app.id)) {
       this.drawTileBack(t, x, y)
     } else {
-      s.text(x + 12, y + t.h - 34, name, { size: 22, font: F_LIGHT(22), color: C.WHITE, maxWidth: t.w - 24 })
-      tileGlyph(s, t.app, x + t.w / 2, y + t.h / 2 - 12, Math.min(96, t.w * 0.55))
+      // 真机 WP7 方贴正面只有居中的白图标，没有应用名；宽贴（图片/音乐+视频枢纽）左下角才有小字名称
+      if (t.wide) {
+        const name = (lang === 'en' ? t.app.nameEn : undefined) ?? t.app.name
+        s.text(x + 12, y + t.h - 34, name, { size: 22, font: F_LIGHT(22), color: C.WHITE, maxWidth: t.w - 24 })
+        tileGlyph(s, t.app, x + t.w / 2, y + t.h / 2 - 10, Math.min(96, t.w * 0.55), darkTile ? C.BLACK : this.accent())
+      } else {
+        tileGlyph(s, t.app, x + t.w / 2, y + t.h / 2, Math.min(96, t.w * 0.55), darkTile ? C.BLACK : this.accent())
+      }
     }
     // 管理模式：右上角卸载圆 + 暗角
     if (this.pinMode) {
@@ -1345,13 +1419,31 @@ class WP7OS implements PhoneOS {
     }
   }
 
-  /** 瓷贴背面：标题行 + 居中摘要（计数/时间） */
+  /** 瓷贴背面：标题行 + 居中摘要（计数/时间）；图片贴背面为照片本身，游戏贴为 Xbox 资料卡 */
   private drawTileBack(t: PlacedTile, x: number, y: number) {
     const s = this.deps.screen
     const str = wpStrings(this.deps.lang.get())
+    if (t.app.id === 'pictures') {
+      // 真机图片贴背面轮播照片：裁切填满瓷贴，无文字
+      const img = this.lockPhoto ?? getWallpaper(this.wallpaperIdx)
+      const scale = Math.max(t.w / img.width, t.h / img.height)
+      const sw = Math.round(t.w / scale)
+      const sh = Math.round(t.h / scale)
+      s.blit(img, x, y, {
+        w: t.w, h: t.h,
+        sx: Math.max(0, Math.round((img.width - sw) / 2)),
+        sy: Math.max(0, Math.round((img.height - sh) / 2)),
+        sw: Math.min(sw, img.width), sh: Math.min(sh, img.height),
+      })
+      return
+    }
+    let title = (this.deps.lang.get() === 'en' ? t.app.nameEn : undefined) ?? t.app.name
     let big = ''
-    if (t.app.id === 'messages') big = this.unreadCount > 0 ? String(this.unreadCount) : '0'
-    else if (t.app.id === 'phone') {
+    let numeric = false
+    if (t.app.id === 'messages') {
+      big = this.unreadCount > 0 ? String(this.unreadCount) : '0'
+      numeric = true
+    } else if (t.app.id === 'phone') {
       big = str.tileBackCall
     } else if (t.app.id === 'clock') {
       big = this.alarm?.on
@@ -1364,10 +1456,17 @@ class WP7OS implements PhoneOS {
       big = ev
         ? `${String(ev.h).padStart(2, '0')}:${String(ev.min).padStart(2, '0')}`
         : str.tileBackCall
+    } else if (t.app.id === 'games') {
+      // Xbox LIVE 资料卡：玩家代号 + 游戏分
+      title = 'Xbox LIVE'
+      big = 'Player1 · 1250G'
     }
-    const title = (this.deps.lang.get() === 'en' ? t.app.nameEn : undefined) ?? t.app.name
     s.text(x + 12, y + 14, title, { size: 18, font: F_REG(18), color: C.WHITE, maxWidth: t.w - 24 })
-    s.textCenter(x + t.w / 2, y + t.h / 2 + 6, big, { size: t.wide ? 72 : 58, font: F_LIGHT(t.wide ? 72 : 58), color: C.WHITE })
+    // 文字类背面统一字号（"无未接"/"最近更新"等一致）；数字类（计数/时间）放大
+    const maxW = t.w - 28
+    let size = numeric ? (t.wide ? 72 : 58) : (t.wide ? 40 : 34)
+    while (size > 18 && s.measure(big, { size, font: F_LIGHT(size) }) > maxW) size -= 4
+    s.textCenter(x + t.w / 2, y + t.h / 2 + 6, big, { size, font: F_LIGHT(size), color: C.WHITE, maxWidth: t.w - 24 })
   }
 
   /** 应用列表：字母分组大标题 + 62 图标行（无大标题，滚动时即真机形态） */
@@ -1388,7 +1487,7 @@ class WP7OS implements PhoneOS {
       }
       if (ry > TRAY_H - ROW_H && ry < H) {
         s.fillRect(LEFT, ry + (ROW_H - ICON) / 2, ICON, ICON, accent)
-        tileGlyph(s, r.app, LEFT + ICON / 2, ry + ROW_H / 2 - 2, ICON * 0.72)
+        tileGlyph(s, r.app, LEFT + ICON / 2, ry + ROW_H / 2 - 2, ICON * 0.72, accent)
         const name = (lang === 'en' ? r.app.nameEn : undefined) ?? r.app.name
         s.text(NAME_X, ry + ROW_H / 2 - 14, name, { size: 28, font: F_LIGHT(28), color: C.WHITE, maxWidth: W - NAME_X - LEFT })
       }

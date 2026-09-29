@@ -168,7 +168,8 @@ class NotesUI {
     })
     // 新建条（强调色）
     s.fillRect(24, H - 100, W - 48, 70, accent)
-    s.textCenter(W / 2, H - 75, '+', { size: 40, font: F_SEMI(40), color: C.WHITE })
+    // '+' 墨迹中心在 text y+27 处：条中心 H-65 → y=H-92
+    s.textCenter(W / 2, H - 92, '+', { size: 40, font: F_SEMI(40), color: C.WHITE })
   }
 
   private drawEdit(title: string) {

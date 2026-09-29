@@ -4,6 +4,7 @@ import { wpStrings } from '../strings'
 import { C, WP7_PALETTE } from '../palette'
 import { W, H, TRAY_H, tray, F_LIGHT, F_REG , onTrayChange } from '../ui'
 import type { WPhoto } from './camera'
+import { STOCK_PHOTOS, loadStockBitmaps, stockBitmap } from '../../stockPhotos'
 
 /**
  * Pictures 图片中心（Mango 预装）：相机照片共享 camera:photos，
@@ -28,6 +29,14 @@ class PicturesUI {
   private photos: WPhoto[] = []
   private cur: WPhoto | null = null
   private toastT = 0
+  /** 素材位图加载中标志（避免重复触发） */
+  private loadingStock = false
+  /**
+   * 启动预热：应用打开时有 morph 转场动画（~0.35s），转场结束会 clearOverlays
+   * 清掉动画快照叠加层——但也会清掉照片 blit 叠加层。调色板绘制（fillRect/pset）
+   * 写入缓冲不受影响，照片走 overlay 故需在转场结束后重铺。预热期每帧重绘以覆盖。
+   */
+  private warmup = 0.6
   private offs: Array<() => void> = []
   private dead = false
 
@@ -39,17 +48,30 @@ class PicturesUI {
   }
 
   async init() {
-    // 首次打开放入 3 张示例图（真机也有内置示例媒体）
-    if (!(await this.ctx.store.get<boolean>('seeded'))) {
-      await this.ctx.store.set('seeded', true)
-      const existing = (await this.ctx.store.get<WPhoto[]>('photos')) ?? []
-      if (!existing.length) await this.ctx.store.set('photos', samplePhotos())
+    // 内置素材相册种子（版本化）：seedV 升级时重新放入素材相册，
+    // 同时保留用户用相机拍的照片（整数大 id、无 src），丢弃旧版程序化示例图。
+    const SEED_V = 2
+    const v = (await this.ctx.store.get<number>('seedV')) ?? 0
+    let photos = (await this.ctx.store.get<WPhoto[]>('photos')) ?? []
+    if (v < SEED_V) {
+      const userCam = photos.filter(
+        (p) => p.src === undefined && p.id > 1000 && Number.isInteger(p.id),
+      )
+      photos = [...stockPhotos(), ...userCam]
+      await this.ctx.store.set('photos', photos)
+      await this.ctx.store.set('seedV', SEED_V)
     }
-    this.photos = (await this.ctx.store.get<WPhoto[]>('photos')) ?? []
+    this.photos = photos
+    void loadStockBitmaps().then(() => this.draw())
     this.offs.push(this.ctx.onKey((k) => this.onKey(k)))
     this.offs.push(this.ctx.onTap((x, y) => this.onTap(x, y)))
     this.offs.push(onTrayChange(() => this.draw()))
     this.offs.push(this.ctx.onFrame((dt) => {
+      if (this.warmup > 0) {
+        // 转场动画期间/结束后重铺照片叠加层（见字段注释）
+        this.warmup = Math.max(0, this.warmup - dt)
+        this.draw()
+      }
       if (this.toastT > 0) {
         this.toastT -= dt
         this.draw()
@@ -73,8 +95,8 @@ class PicturesUI {
 
   private onTap(x: number, y: number) {
     if (this.cur) {
-      // 底部应用栏：左 = 设为锁屏，右 = 删除
-      if (y >= H - 110 && y < H - 30) {
+      // 底部应用栏（y≥H-120）：左半 = 设为锁屏，右半 = 删除
+      if (y >= H - 120) {
         if (x < W / 2) {
           this.ctx.host.setLockPhoto?.(photoToCanvas(this.cur), this.cur.id)
           this.toastT = 2.4
@@ -146,16 +168,55 @@ class PicturesUI {
     const x = (W - size) >> 1
     const y = 64
     this.drawPhoto(this.cur!, x, y, size)
-    // 底部应用栏（真机 Metro 应用栏为半透明黑 + 白字）
-    s.fillRect(0, H - 120, W, 120, C.DIM)
-    s.text(24, H - 62, str.picSetLock, { size: 22, font: F_REG(22), color: C.WHITE })
-    s.text(W / 2 + 24, H - 62, str.picDelete, { size: 22, font: F_REG(22), color: C.WHITE })
-    s.fillRect(W / 2, H - 100, 1, 80, C.GRAY)
+    // 底部应用栏：真机 Mango 为半透明黑条 + 居中圆形图标按钮 + 下方小字标签。
+    // 两按钮：左=设为锁屏背景（锁形图标）、右=删除（垃圾桶图标）。
+    const barY = H - 120
+    s.fillRect(0, barY, W, 120, C.BLACK)
+    const accent = this.ctx.host.getAccent?.() ?? C.BLUE
+    const r = 26
+    const drawBtn = (cx: number, icon: 'lock' | 'trash') => {
+      // 圆形描边按钮（白圈 + 强调色图标），居中
+      for (let dy = -r; dy <= r; dy++)
+        for (let dx = -r; dx <= r; dx++) {
+          const d2 = dx * dx + dy * dy
+          if (d2 <= r * r && d2 > (r - 3) * (r - 3)) s.pset(cx + dx, barY + 28 + dy, C.WHITE)
+        }
+      if (icon === 'lock') {
+        // 锁体（方）+ 上方锁环（半圆）
+        s.fillRect(cx - 9, barY + 22, 18, 14, accent)
+        for (let dx = -6; dx <= 6; dx++)
+          for (let dy = -6; dy <= 4; dy++)
+            if (dx * dx + dy * dy <= 36 && dx * dx + dy * dy > 16)
+              s.pset(cx + dx, barY + 18 + dy, accent)
+        s.fillRect(cx - 2, barY + 26, 4, 6, C.WHITE)
+      } else {
+        // 垃圾桶：桶身 + 盖 + 把手
+        s.fillRect(cx - 9, barY + 20, 18, 2, accent)
+        s.fillRect(cx - 3, barY + 17, 6, 3, accent)
+        for (let i = 0; i < 12; i++) s.fillRect(cx - 8 + i, barY + 22 + (i / 12) * 1, 2, 14, accent)
+        s.fillRect(cx - 7, barY + 22, 14, 13, accent)
+        s.fillRect(cx - 4, barY + 26, 2, 7, C.WHITE)
+        s.fillRect(cx + 2, barY + 26, 2, 7, C.WHITE)
+      }
+    }
+    drawBtn(W / 4, 'lock')
+    drawBtn((W * 3) / 4, 'trash')
+    s.textCenter(W / 4, barY + 66, str.picSetLock, { size: 18, font: F_REG(18), color: C.WHITE })
+    s.textCenter((W * 3) / 4, barY + 66, str.picDelete, { size: 18, font: F_REG(18), color: C.WHITE })
   }
 
-  /** 最近邻放大绘制索引照片 */
+  /** 绘制照片：素材照片 blit 真实位图（平滑），相机照片用调色板像素放大 */
   private drawPhoto(p: WPhoto, x: number, y: number, size: number) {
     const s = this.ctx.screen
+    if (p.src) {
+      const bmp = stockBitmap(p.src)
+      if (bmp) { s.blit(bmp, x, y, { w: size, h: size, smooth: true }); return }
+      // 位图尚未就绪：触发加载，就绪后重绘（幂等，多张照片只触发一次）
+      if (!this.loadingStock) {
+        this.loadingStock = true
+        void loadStockBitmaps().then(() => { this.loadingStock = false; this.draw() })
+      }
+    }
     for (let dy = 0; dy < size; dy++)
       for (let dx = 0; dx < size; dx++) {
         const px = Math.min(p.w - 1, Math.floor((dx / size) * p.w))
@@ -165,12 +226,26 @@ class PicturesUI {
   }
 }
 
-/** 索引照片 → 480×800 全彩 canvas（照片放大至屏宽，垂直居中，黑底） */
+/** 照片 → 480×800 全彩 canvas（素材照片直接缩放绘制，相机照片走调色板放大） */
 export function photoToCanvas(p: WPhoto): HTMLCanvasElement {
   const cv = document.createElement('canvas')
   cv.width = 480
   cv.height = 800
   const g = cv.getContext('2d')!
+  g.fillStyle = '#000000'
+  g.fillRect(0, 0, 480, 800)
+  // 素材照片：cover 填充屏宽、垂直居中
+  const bmp = p.src ? stockBitmap(p.src) : undefined
+  if (bmp) {
+    const iw = (bmp as ImageBitmap).width || 640
+    const ih = (bmp as ImageBitmap).height || 640
+    const scale = Math.max(480 / iw, 480 / ih)
+    const dw = iw * scale, dh = ih * scale
+    g.imageSmoothingEnabled = true
+    g.drawImage(bmp as CanvasImageSource, (480 - dw) / 2, (800 - dh) / 2, dw, dh)
+    return cv
+  }
+  // 相机照片：调色板像素放大至 480×480，垂直居中
   const img = g.createImageData(480, 800)
   for (let i = 0; i < 480 * 800; i++) img.data[i * 4 + 3] = 255
   const top = (800 - 480) >> 1
@@ -180,46 +255,16 @@ export function photoToCanvas(p: WPhoto): HTMLCanvasElement {
       const py = Math.min(p.h - 1, Math.floor((dy / 480) * p.h))
       const idx = p.data[py * p.w + px] ?? C.BLACK
       const hex = WP7_PALETTE[idx] ?? '#000000'
-      const r = parseInt(hex.slice(1, 3), 16)
-      const gg = parseInt(hex.slice(3, 5), 16)
-      const b = parseInt(hex.slice(5, 7), 16)
       const o = ((top + dy) * 480 + dx) * 4
-      img.data[o] = r
-      img.data[o + 1] = gg
-      img.data[o + 2] = b
+      img.data[o] = parseInt(hex.slice(1, 3), 16)
+      img.data[o + 1] = parseInt(hex.slice(3, 5), 16)
+      img.data[o + 2] = parseInt(hex.slice(5, 7), 16)
     }
   g.putImageData(img, 0, 0)
   return cv
 }
 
-/** 三张内置示例图（程序生成的 Metro 风像素画） */
-function samplePhotos(): WPhoto[] {
-  const w = 108
-  const make = (fn: (x: number, y: number) => number): WPhoto => {
-    const data: number[] = []
-    for (let y = 0; y < w; y++) for (let x = 0; x < w; x++) data.push(fn(x, y))
-    return { id: Date.now() + Math.random() * 1000, w, h: w, data }
-  }
-  const sunset = make((x, y) => {
-    if (y < 60) {
-      const dx = x - 54
-      const dy = y - 66
-      if (dx * dx + dy * dy < 200) return C.MANGO
-      return y < 25 ? C.PURPLE : y < 45 ? C.MAGENTA : C.BLUE
-    }
-    if (y < 80) return C.TEAL
-    return C.BLACK
-  })
-  const waves = make((x, y) => {
-    const band = Math.floor(y / 18)
-    const wave = Math.sin((x + band * 14) / 12) > 0
-    return wave ? C.TEAL : C.BLUE
-  })
-  const blocks = make((x, y) => {
-    const palette = [C.MANGO, C.LIME, C.MAGENTA, C.TEAL, C.PINK, C.PURPLE]
-    const bx = Math.floor(x / 36)
-    const by = Math.floor(y / 36)
-    return palette[(bx + by * 3) % palette.length]!
-  })
-  return [sunset, waves, blocks]
+/** 内置素材相册（真实照片，懒加载位图） */
+function stockPhotos(): WPhoto[] {
+  return STOCK_PHOTOS.map((s) => ({ id: s.id, w: 640, h: 640, data: [], src: s.file }))
 }

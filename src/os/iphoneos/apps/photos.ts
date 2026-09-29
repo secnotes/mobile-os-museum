@@ -59,7 +59,7 @@ class PhotosApp extends IphoneApp {
     const photos = this.list()
     photos.forEach((p, i) => {
       const col = i % 4, row = Math.floor(i / 4)
-      drawPhotoArt(s, GX[col]!, 66 + row * 79, TH, TH, p.seed)
+      drawPhotoArt(s, GX[col]!, 66 + row * 79, TH, TH, p.seed, p.src)
     })
   }
 
@@ -68,7 +68,7 @@ class PhotosApp extends IphoneApp {
     const p = photos[this.idx]
     if (p) {
       // 320×240 居中显示
-      drawPhotoArt(s, 0, 120, 320, 240, p.seed)
+      drawPhotoArt(s, 0, 120, 320, 240, p.seed, p.src)
     }
     if (this.chrome) {
       s.fillRect(0, 20, 320, 44, C.BLACK)

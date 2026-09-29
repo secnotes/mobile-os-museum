@@ -445,6 +445,26 @@ export class Screen {
   }
 
   /**
+   * 以 (cx, cy) 为几何中心绘制文字（水平 + 垂直居中，按实际字形墨区计算）。
+   * 与 textCenter（y 是墨区顶）不同，按钮/键面/方块内的标签用它，避免文字偏下。
+   */
+  textCenterV(cx: number, cy: number, str: string, opts: TextOpts = {}) {
+    const hasHan = /[⺀-鿿　-〿＀-￯]/.test(str)
+    const size = opts.size ?? (hasHan ? 12 : 9)
+    const font = opts.font ?? this.fontFor(str, size)
+    const g = this.offCtx
+    g.font = font
+    const m = g.measureText(str)
+    const a = m.actualBoundingBoxAscent ?? size * 0.8
+    const d = m.actualBoundingBoxDescent ?? size * 0.2
+    const w = Math.ceil(m.width)
+    // text() 的 y 是光栅顶，光栅基线在 y+size+1；墨区中心 = 基线 + (d-a)/2，
+    // 令墨区中心 = cy → 基线 = cy - (d-a)/2
+    const y = Math.round(cy - (d - a) / 2 - size - 1)
+    this.text(Math.round(cx - w / 2), y, str, opts)
+  }
+
+  /**
    * 清空 smooth 叠加层中指定逻辑区域：当某不透明面板（如抽屉）覆盖该区域时，
    * 其下方已画到 smoothCvs 的文字会因 blitSmooth 最后合成而透出面板之上，
    * 故面板绘制后须清空其覆盖区，避免下层文字漏出。区域外（如状态栏）保留。

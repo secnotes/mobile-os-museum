@@ -8,8 +8,10 @@ export interface APhoto {
   id: number
   w: number
   h: number
-  /** 调色板索引像素 */
+  /** 调色板索引像素（相机拍摄产物；素材照片为空数组） */
   data: number[]
+  /** 素材照片文件名（存在则渲染真实照片） */
+  src?: string
 }
 
 /**

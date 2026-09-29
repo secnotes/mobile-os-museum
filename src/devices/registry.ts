@@ -220,7 +220,7 @@ export const DEVICES: DeviceProfile[] = [
     screen: {
       w: 480,
       h: 800,
-      scale: 0.72,
+      scale: 0.8,
       bg: '#000000',
       palette: WP7_PALETTE,
       touch: true,

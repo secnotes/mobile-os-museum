@@ -281,7 +281,7 @@ export class SudokuGame {
     buttons.forEach(([label, fill], i) => {
       const x = BX + i * 132
       s.fillRect(x, 660, 126, 56, fill)
-      s.textCenter(x + 63, 684, label, { size: 22, font: F_REG(22), color: C.WHITE })
+      s.textCenterV(x + 63, 688, label, { size: 22, font: F_REG(22), color: C.WHITE })
     })
   }
 

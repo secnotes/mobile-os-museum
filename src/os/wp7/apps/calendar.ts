@@ -245,7 +245,8 @@ class CalUI {
     // 新建条
     const accent = this.ctx.host.getAccent?.() ?? C.BLUE
     s.fillRect(24, H - 92, W - 48, 70, accent)
-    s.textCenter(W / 2, H - 67, '+', { size: 40, font: F_SEMI(40), color: C.WHITE })
+    // '+' 墨迹中心在 text y+27 处（Open Sans 实测）：条中心 H-57 → y=H-84
+    s.textCenter(W / 2, H - 84, '+', { size: 40, font: F_SEMI(40), color: C.WHITE })
   }
 
   private drawEdit() {

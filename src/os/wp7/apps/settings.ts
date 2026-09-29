@@ -3,7 +3,7 @@ import type { DeviceKey } from '../../../hal/input'
 import { wpStrings } from '../strings'
 import { C, ACCENTS } from '../palette'
 import { RINGTONES, SMS_SOUNDS, ALARM_SOUNDS, playSound } from '../ringtones'
-import { W, H, TRAY_H, tray, roundRect, F_LIGHT, F_REG , onTrayChange } from '../ui'
+import { W, H, TRAY_H, tray, roundRect, F_LIGHT, F_REG , onTrayChange, checkbox } from '../ui'
 import type { Row, PivotDef } from '../pivot'
 import { WALLPAPERS, getWallpaper } from '../wallpaper'
 
@@ -40,6 +40,8 @@ class SettingsUI {
   private activePivot = 0
   private pivotScroll = 0
   private panelScroll = 0
+  /** 按下时记录的动作，抬起（无滑动）才执行（见 onTap/firePending） */
+  private pending: (() => void) | null = null
   /** 布尔开关缓存（key=settings 之后的短键） */
   private toggles: Record<string, boolean> = {}
   private ringIdx = 0
@@ -73,6 +75,8 @@ class SettingsUI {
     // 设置页自己接管按键/点按/滑动（含面板路由与 Pivot 切换）
     this.offs.push(this.ctx.onKey((k) => this.onKey(k)))
     this.offs.push(this.ctx.onTap((x, y) => this.onTap(x, y)))
+    this.offs.push(this.ctx.onTapUp(() => this.firePending()))
+    this.offs.push(this.ctx.onWheel((dy) => this.onWheel(dy)))
     this.offs.push(onTrayChange(() => this.draw()))
     this.offs.push(this.ctx.onSwipe((dir) => this.onSwipe(dir)))
     this.offs.push(this.ctx.onLang(() => this.draw()))
@@ -557,59 +561,76 @@ class SettingsUI {
     }
     if (dir === 'left') this.gotoPivot(this.activePivot + 1)
     else if (dir === 'right') this.gotoPivot(this.activePivot - 1)
-    else this.scrollList(dir === 'up' ? -ROW_STEP : ROW_STEP)
+    else this.scrollList(dir === 'up' ? ROW_STEP : -ROW_STEP)
+  }
+
+  /** 鼠标滚轮：下滚 = 看下方内容（与手指上滑同效果，与桌面瓷贴滚轮一致） */
+  private onWheel(dy: number) {
+    if (this.dead) return
+    if (this.panel) {
+      this.panelScroll += dy > 0 ? 240 : -240
+      this.clampPanelScroll()
+      this.draw()
+    } else this.scrollList(dy > 0 ? ROW_STEP : -ROW_STEP)
   }
 
   private onTap(x: number, y: number) {
+    // 只记录命中动作不立即执行：真机触屏上按住滑动是滚动，抬起才触发点按；
+    // 总线 tap 在 pointerdown 即派发，若立即执行会导致"拖动=误开面板"
+    this.pending = null
     if (this.panel) {
       // 面板内特殊网格
       if (this.panel.title === wpStrings(this.ctx.lang.get()).setTheme) {
-        this.pickTheme(x, y)
+        this.pending = () => this.pickTheme(x, y)
         return
       }
       if (this.panel.title === wpStrings(this.ctx.lang.get()).setLock && y < CONTENT_Y + 380) {
-        this.pickWallpaper(x, y)
+        this.pending = () => this.pickWallpaper(x, y)
         return
       }
       let ry = CONTENT_Y - this.panelScroll
       for (const r of this.panel.rows()) {
         const h = r.h ?? (r.sub ? 82 : 64)
         if (y >= ry && y < ry + h) {
-          r.tap?.()
+          if (r.tap) this.pending = r.tap
           return
         }
         ry += h
       }
       return
     }
-    // 无面板时委托 Pivot 模型
-    this.pivotTap(x, y)
+    this.pending = this.pivotHit(x, y)
   }
 
-  /** 无面板时的点按命中（含标题切换），作用于本类 defs */
-  private pivotTap(x: number, y: number) {
+  /** 抬起时触发按下时记录的动作（发生过滑动则总线不发 tapUp，自然不会误触发） */
+  private firePending() {
+    const p = this.pending
+    this.pending = null
+    p?.()
+  }
+
+  /** 无面板时的点按命中（含标题切换），返回要执行的动作 */
+  private pivotHit(x: number, y: number): (() => void) | null {
     if (y < CONTENT_Y - 10) {
       let tx = LEFT
       for (let i = 0; i < this.defs.length; i++) {
         const title = this.defs[i]!.title
         const tw = this.ctx.screen.measure(title, { size: 32, font: F_LIGHT(32) }) + 36
         if (x >= tx && x < tx + tw) {
-          this.gotoPivot(i)
-          return
+          const gi = i
+          return () => this.gotoPivot(gi)
         }
         tx += tw
       }
-      return
+      return null
     }
     let ry = CONTENT_Y - this.pivotScroll
     for (const r of this.defs[this.activePivot]!.rows()) {
       const h = r.h ?? (r.sub ? 82 : 64)
-      if (y >= ry && y < ry + h) {
-        r.tap?.()
-        return
-      }
+      if (y >= ry && y < ry + h) return r.tap ?? null
       ry += h
     }
+    return null
   }
 
   private panelContentH(): number {
@@ -664,6 +685,17 @@ class SettingsUI {
 
   private drawPivots() {
     const s = this.ctx.screen
+    let ry = CONTENT_Y - this.pivotScroll
+    for (const r of this.defs[this.activePivot]!.rows()) {
+      const h = r.h ?? (r.sub ? 82 : 64)
+      // 列表项可部分滑入标题区，先画再由标题带覆盖，实现粘性标题
+      if (ry + h > 0 && ry < H) {
+        if (r.custom) r.custom(s, LEFT, ry, W - LEFT * 2)
+        else this.drawPlainRow(r, ry, h)
+      }
+      ry += h
+    }
+    this.drawHeader()
     let tx = LEFT
     this.defs.forEach((p, i) => {
       const selected = i === this.activePivot
@@ -673,15 +705,23 @@ class SettingsUI {
       })
       tx += w + 36
     })
-    let ry = CONTENT_Y - this.pivotScroll
-    for (const r of this.defs[this.activePivot]!.rows()) {
-      const h = r.h ?? (r.sub ? 82 : 64)
-      if (ry > TRAY_H && ry < H) {
-        if (r.custom) r.custom(s, LEFT, ry, W - LEFT * 2)
-        else this.drawPlainRow(r, ry, h)
-      }
-      ry += h
-    }
+  }
+
+  /**
+   * 粘性标题带：列表滚动时会滑入标题区，故列表画完后用黑底重铺
+   * [0, CONTENT_Y) 并重绘托盘，使标题/托盘恒显于顶层（真机 Pivot 头是固定的）。
+   */
+  private drawHeader() {
+    const s = this.ctx.screen
+    s.fillRect(0, 0, W, CONTENT_Y, C.BLACK)
+    const d = new Date()
+    const two = (x: number) => String(x).padStart(2, '0')
+    tray(s, {
+      unread: false,
+      batteryPct: this.ctx.battery.percent,
+      charging: this.ctx.battery.charging,
+      clock: `${two(d.getHours())}:${two(d.getMinutes())}`,
+    })
   }
 
   private drawPlainRow(r: Row, ry: number, h: number) {
@@ -698,30 +738,26 @@ class SettingsUI {
       for (let i = 0; i < 14; i++)
         s.fillRect(W - 36 + i, ry + h / 2 - 12 + i, 3, 24 - i * 2, C.WHITE)
     } else if (r.control === 'toggle') {
-      const x = W - 78
-      const y = ry + h / 2 - 13
-      if (r.on) roundRect(s, x, y, 56, 26, 13, accent, null)
-      else roundRect(s, x, y, 56, 26, 13, C.DIM, C.GRAY)
-      const kx = r.on ? x + 56 - 24 : x + 2
-      for (let dy = 0; dy < 22; dy++)
-        for (let dx = 0; dx < 22; dx++)
-          if (dx * dx + dy * dy <= 121) s.pset(kx + dx, y + 2 + dy, C.WHITE)
+      // WP7 是 checkbox（主题色底白 X），不是 WP8 的滑动开关
+      checkbox(s, W - 74, ry + h / 2 - 19, !!r.on, accent)
     }
   }
 
   private drawPanel() {
     const s = this.ctx.screen
     const p = this.panel!
-    s.text(LEFT, TRAY_H + 10, p.title, { size: 32, font: F_LIGHT(32), color: C.WHITE })
     let ry = CONTENT_Y - this.panelScroll
     for (const r of p.rows()) {
       const h = r.h ?? (r.sub ? 82 : 64)
-      if (ry > TRAY_H && ry < H) {
+      if (ry + h > 0 && ry < H) {
         if (r.custom) r.custom(s, LEFT, ry, W - LEFT * 2)
         else this.drawPlainRow(r, ry, h)
       }
       ry += h
     }
+    // 粘性标题：面板标题恒显于顶层（同 drawPivots）
+    this.drawHeader()
+    s.text(LEFT, TRAY_H + 10, p.title, { size: 32, font: F_LIGHT(32), color: C.WHITE })
   }
 
   /** Toast：顶部强调色条 + 两行白字（下滑出现） */

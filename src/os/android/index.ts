@@ -10,6 +10,7 @@ import { APPS } from './apps/registry'
 import { browserApp, setPendingQuery } from './apps/browser'
 import { marketApp } from './apps/market'
 import { dayBit, type AAlarm } from './apps/clock'
+import { STOCK_PHOTOS, loadStockBitmaps, stockBitmap } from '../stockPhotos'
 import { androidStrings } from './strings'
 import { C } from './palette'
 import { assets, RINGTONE_NAMES, ALARM_NAMES, NOTIFY_FILES } from './assets'
@@ -106,6 +107,8 @@ class AndroidOS implements PhoneOS {
   private offs: Array<() => void> = []
   private timers: Array<ReturnType<typeof setTimeout>> = []
   private wallpaper = 0
+  /** 照片壁纸位图（wallpaper===3 时用，setWallpaperPhoto/loadState 填充） */
+  private wallpaperPhotoBmp: CanvasImageSource | null = null
   private silent = false
   /** 24 小时制（设置 → 日期和时间；状态栏/锁屏时钟联动） */
   private h24 = false
@@ -177,10 +180,14 @@ class AndroidOS implements PhoneOS {
     await this.deps.battery.init()
     await this.loadState()
     await this.seedMessages()
+    await this.seedPhotos()
     await this.refreshUnread()
     await this.rebuildNotifs()
     this.contacts = await loadContacts(this.deps.store.get.bind(this.deps.store))
     void assets.loadAll(this.deps.audio).then(() => {
+      if (this.state !== 'off' && this.state !== 'boot') this.draw()
+    })
+    void loadStockBitmaps().then(() => {
       if (this.state !== 'off' && this.state !== 'boot') this.draw()
     })
     this.watchStore()
@@ -245,6 +252,19 @@ class AndroidOS implements PhoneOS {
 
   private async loadState() {
     this.wallpaper = (await this.deps.store.get<number>('settings:wallpaper')) ?? 0
+    if (this.wallpaper === 3) {
+      const pid = await this.deps.store.get<number>('settings:wallpaperPhoto')
+      if (pid != null) {
+        const photos = (await this.deps.store.get<APhoto[]>('camera:photos')) ?? []
+        const p = photos.find((x) => x.id === pid)
+        if (p?.src) {
+          void loadStockBitmaps().then(() => {
+            this.wallpaperPhotoBmp = stockBitmap(p.src!) ?? null
+            if (this.state !== 'off' && this.state !== 'boot') this.draw()
+          })
+        }
+      }
+    }
     this.silent = (await this.deps.store.get<boolean>('settings:silent')) ?? false
     this.h24 = (await this.deps.store.get<boolean>('settings:h24')) ?? false
     this.ringtoneIdx = (await this.deps.store.get<number>('settings:ringtone')) ?? 1
@@ -1074,6 +1094,13 @@ class AndroidOS implements PhoneOS {
     await this.deps.store.set('settings:wallpaperPhoto', p.id)
     this.wallpaper = 3
     await this.deps.store.set('settings:wallpaper', 3)
+    this.wallpaperPhotoBmp = p.src ? (stockBitmap(p.src) ?? null) : null
+    if (p.src && !this.wallpaperPhotoBmp) {
+      void loadStockBitmaps().then(() => {
+        this.wallpaperPhotoBmp = stockBitmap(p.src!) ?? null
+        this.draw()
+      })
+    }
     this.dlgStack = []
     this.state = 'home'
     this.draw()
@@ -1247,6 +1274,25 @@ class AndroidOS implements PhoneOS {
   }
 
   // ---------- 短信生态 ----------
+
+  /** 首启注入素材相册（真实照片） */
+  private async seedPhotos() {
+    // 版本化种子：photos:seedV 升级时重新放入素材相册，保留用户相机照片
+    // （大整数 id、无 src），丢弃旧版程序化示例图。
+    const SEED_V = 2
+    const existing = (await this.deps.store.get<APhoto[]>('camera:photos')) ?? []
+    const v = (await this.deps.store.get<number>('photos:seedV')) ?? 0
+    if (v >= SEED_V && existing.length) return
+    const userCam = existing.filter(
+      (p) => p.src === undefined && p.id > 1000 && Number.isInteger(p.id),
+    )
+    const photos = [
+      ...STOCK_PHOTOS.map((s) => ({ id: s.id, w: 640, h: 640, data: [], src: s.file }) satisfies APhoto),
+      ...userCam,
+    ]
+    await this.deps.store.set('camera:photos', photos)
+    await this.deps.store.set('photos:seedV', SEED_V)
+  }
 
   private async seedMessages() {
     const inbox = await this.deps.store.get<AMsg[]>('messages:inbox')
@@ -1931,7 +1977,16 @@ class AndroidOS implements PhoneOS {
       return
     }
     if (wp === 3) {
-      // 用户照片壁纸（异步位图由 drawWallpaperPhoto 缓存，此处回落默认壁纸）
+      // 用户照片壁纸：素材照片 cover 填充；位图未就绪则回落默认壁纸
+      const bmp = this.wallpaperPhotoBmp
+      if (bmp) {
+        const iw = (bmp as ImageBitmap).width || 640, ih = (bmp as ImageBitmap).height || 640
+        const aw = W, ah = H - STATUS_H
+        const sc = Math.max(aw / iw, ah / ih)
+        const dw = iw * sc, dh = ih * sc
+        s.blitBg(bmp, (aw - dw) / 2, STATUS_H + (ah - dh) / 2, { w: dw, h: dh })
+        return
+      }
       if (real) s.blitBg(real, 0, STATUS_H, { w: W, h: H - STATUS_H })
       return
     }

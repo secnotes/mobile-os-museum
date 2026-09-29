@@ -152,7 +152,7 @@ class GamesUI {
       const y = top + i * 110
       s.fillRect(24, y, 84, 84, XBOX)
       const glyph = ['S', 'M', '9'][i]!
-      s.textCenter(66, y + 42, glyph, { size: 44, font: F_SEMI(44), color: C.WHITE })
+      s.textCenterV(66, y + 42, glyph, { size: 44, font: F_SEMI(44), color: C.WHITE })
       s.text(128, y + 14, name, { size: 30, font: F_SEMI(30), color: C.WHITE })
       s.text(128, y + 56, clipToWidth(s, sub, W - 160, 22, F_REG(22)), {
         size: 22, font: F_REG(22), color: C.GRAY,

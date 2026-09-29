@@ -95,7 +95,7 @@ class IEUI {
       const items: Array<[PageId, string]> = [
         ['bing', str.ieBing], ['news', str.ieNews], ['weather', str.ieWeather],
       ]
-      const r = Math.floor((y - PAGE_TOP) / 80)
+      const r = Math.floor((y - PAGE_TOP - 46) / 80)
       if (r >= 0 && r < items.length) {
         this.page = items[r]![0]
         this.url = ''
@@ -146,10 +146,11 @@ class IEUI {
 
   private drawStart(str: ReturnType<typeof wpStrings>) {
     const s = this.ctx.screen
-    s.text(24, PAGE_TOP - 36, str.ieFav, { size: 22, font: F_REG(22), color: C.GRAY })
+    // 「收藏夹」栏目标签须在地址栏（96..148）之下；原 PAGE_TOP-36=114 与地址栏文字重合
+    s.text(24, PAGE_TOP + 6, str.ieFav, { size: 22, font: F_REG(22), color: C.GRAY })
     const items = [str.ieBing, str.ieNews, str.ieWeather]
     items.forEach((name, i) => {
-      const y = PAGE_TOP + i * 80
+      const y = PAGE_TOP + 46 + i * 80
       s.text(24, y + 4, name, { size: 28, font: F_REG(28), color: C.WHITE })
       for (let k = 0; k < 14; k++)
         s.fillRect(W - 36 + k, y + 12 + k, 3, 24 - k * 2, C.WHITE)

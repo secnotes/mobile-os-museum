@@ -124,8 +124,10 @@ class PeopleUI {
         // 头像方块（强调色底 + 人形剪影）
         roundRect(s, 24, y + 4, 64, 64, 4, accent, null)
         glyphPerson(s, 56, y + 36, 44, C.WHITE)
-        s.text(116, y + 18, clipToWidth(s, c.name, W - 160, 32, F_LIGHT(32)), { size: 32, font: F_LIGHT(32), color: C.WHITE })
-        s.text(116, y + 56, clipToWidth(s, c.tel, W - 160, 22, F_REG(22)), { size: 22, font: F_REG(22), color: C.GRAY })
+        // 姓名+号码文字块与头像方块（中心 y+36）垂直居中：
+        // 32px 墨迹 y+10..y+38、22px 墨迹 y+49..y+63 → 块中心 y+36.5
+        s.text(116, y + 3, clipToWidth(s, c.name, W - 160, 32, F_LIGHT(32)), { size: 32, font: F_LIGHT(32), color: C.WHITE })
+        s.text(116, y + 41, clipToWidth(s, c.tel, W - 160, 22, F_REG(22)), { size: 22, font: F_REG(22), color: C.GRAY })
         s.fillRect(24, y + ROW_H - 6, W - 48, 1, C.DIM)
       }
     }
@@ -140,8 +142,9 @@ class PeopleUI {
     s.text(150, 196, clipToWidth(s, c.tel, W - 190, 26, F_REG(26)), { size: 26, font: F_REG(26), color: C.GRAY })
     // 动作条：呼叫 / 发信息
     roundRect(s, 24, H - 190, W / 2 - 44, 70, 6, accent, null)
-    s.textCenter(W / 4 - 10, H - 165, str.peopleCall, { size: 30, font: F_SEMI(30), color: C.WHITE })
+    // 30px 文字墨迹中心在 text y+20 处：按钮中心 H-155 → y=H-175
+    s.textCenter(W / 4 - 10, H - 175, str.peopleCall, { size: 30, font: F_SEMI(30), color: C.WHITE })
     roundRect(s, W / 2 + 20, H - 190, W / 2 - 44, 70, 6, C.DIM, null)
-    s.textCenter(W * 3 / 4 + 10, H - 165, str.peopleSendMsg, { size: 30, font: F_SEMI(30), color: C.WHITE })
+    s.textCenter(W * 3 / 4 + 10, H - 175, str.peopleSendMsg, { size: 30, font: F_SEMI(30), color: C.WHITE })
   }
 }

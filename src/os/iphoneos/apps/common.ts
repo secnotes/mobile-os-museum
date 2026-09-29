@@ -26,6 +26,8 @@ export interface PhotoMeta {
   id: number
   seed: number
   ts: number
+  /** 素材照片文件名（存在则渲染真实照片，否则用 seed 程序化生成） */
+  src?: string
 }
 
 /** OS 桥（系统类实现，app 经它使用跨应用能力） */

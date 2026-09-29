@@ -347,7 +347,8 @@ class PhoneUI {
     })
     // 呼叫键：强调色胶囊
     roundRect(s, W / 2 - 140, H - 92, 280, 64, 6, accent, null)
-    s.textCenter(W / 2, H - 68, str.phoneCall, { size: 30, font: F_SEMI(30), color: C.WHITE })
+    // 30px 文字墨迹中心在 text y+20 处：键中心 H-60 → y=H-80
+    s.textCenter(W / 2, H - 80, str.phoneCall, { size: 30, font: F_SEMI(30), color: C.WHITE })
   }
 
   private drawEndBar(s: import('../../../hal/screen').Screen, str: ReturnType<typeof wpStrings>) {

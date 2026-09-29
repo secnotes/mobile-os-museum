@@ -5,6 +5,7 @@ import type { APhoto } from './camera'
 import { androidStrings } from '../strings'
 import { C, ANDROID_PALETTE } from '../palette'
 import { W, H, STATUS_H, statusBar, roundRect, iconTile, clipToWidth } from '../ui'
+import { loadStockBitmaps, stockBitmap } from '../../stockPhotos'
 
 const GRID_TOP = STATUS_H + 38
 const COLS = 3
@@ -58,6 +59,7 @@ class PicturesUI {
     this.ctx.onLang(() => this.draw())
     this.photos = ((await this.ctx.host.getPhotos?.()) ?? []) as APhoto[]
     this.contacts = (await this.ctx.host.getContacts?.()) ?? []
+    void loadStockBitmaps().then(() => this.draw())
     this.draw()
   }
 
@@ -267,6 +269,13 @@ class PicturesUI {
       const tw = 90
       const th = 64
       const fx = cx + (cw - 6 - tw) / 2
+      if (p.src) {
+        const bmp = stockBitmap(p.src)
+        if (bmp) {
+          s.blit(bmp, fx, cy, { w: tw, h: th, smooth: true })
+          return
+        }
+      }
       for (let yy = 0; yy < th; yy++)
         for (let xx = 0; xx < tw; xx++)
           s.pset(fx + xx, cy + yy, p.data[(((yy / th) * p.h) | 0) * p.w + (((xx / tw) * p.w) | 0)] ?? 0)
@@ -277,6 +286,22 @@ class PicturesUI {
     const s = this.ctx.screen
     const p = this.photos[this.sel]!
     s.fillRect(0, STATUS_H, W, H - STATUS_H, C.BAR)
+    if (p.src) {
+      const bmp = stockBitmap(p.src)
+      if (bmp) {
+        // cover 填充可用区
+        const aw = W, ah = H - STATUS_H - 30
+        const iw = (bmp as ImageBitmap).width || 640, ih = (bmp as ImageBitmap).height || 640
+        const sc = Math.max(aw / iw, ah / ih)
+        const dw = iw * sc, dh = ih * sc
+        s.blit(bmp, (aw - dw) / 2, STATUS_H + 14 + (ah - dh) / 2, { w: dw, h: dh, smooth: true })
+        s.fillRect(0, H - 28, W, 28, C.INK)
+        s.textCenter(W >> 1, H - 21, `${this.sel + 1} / ${this.photos.length}`, { size: 10, color: C.WHITE })
+        s.text(12, H - 21, '‹', { size: 14, color: C.GRAY })
+        s.textRight(W - 12, H - 22, '›', { size: 14, color: C.GRAY })
+        return
+      }
+    }
     const scale = Math.min(W / p.w, (H - STATUS_H - 30) / p.h)
     const dw = Math.round(p.w * scale)
     const dh = Math.round(p.h * scale)

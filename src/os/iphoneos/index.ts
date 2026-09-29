@@ -16,6 +16,7 @@ import { LockScreen } from './lockscreen'
 import { drawBoot, BOOT_TOTAL } from './boot'
 import { RINGTONES, SMS_TONE } from './ringtones'
 import { assets } from './assets'
+import { STOCK_PHOTOS, loadStockBitmaps } from '../stockPhotos'
 import { ipStrings, type IpStrings } from './strings'
 import {
   iconText, iconCalendar, iconPhotos, iconCamera, iconYoutube, iconStocks,
@@ -66,12 +67,16 @@ function seedThreads(now: number): SmsThread[] {
   ]
 }
 
-/** 首启种子：4 张示例照片（相机胶卷可见全部，照片图库除最新一张外） */
+/** 首启种子：6 张素材照片（相机胶卷可见全部，照片图库除最新一张外） */
 function seedPhotos(now: number): PhotoMeta[] {
-  return [29062007, 9012007, 11072007, 4072008].map((seed, i) => ({
-    id: i + 1, seed, ts: now - (3 - i) * 86400_000,
+  return STOCK_PHOTOS.map((s, i) => ({
+    id: s.id, seed: 29062007 + i * 7919, ts: now - (STOCK_PHOTOS.length - 1 - i) * 86400_000, src: s.file,
   }))
 }
+
+/** 照片种子版本：升级时重新放入素材相册，保留用户相机照片（大整数 id、无 src），
+ *  丢弃旧版程序化示例图（小 id 1-4）。 */
+const PHOTOS_SEED_V = 2
 
 type State = 'off' | 'boot' | 'lock' | 'home' | 'app' | 'ringing' | 'incall' | 'sleep' | 'poweroff' | 'zoom'
 
@@ -175,10 +180,11 @@ class IPhoneOS implements PhoneOS {
     await this.deps.battery.init()
     // 预加载真机 PNG 资源（开机 Apple logo / app 图标）；缺图静默回落程序化绘制
     void assets.loadAll()
+    void loadStockBitmaps().then(() => { if (this.state !== 'off' && this.state !== 'boot') this.draw() })
     this.contactsArr = (await this.deps.store.get<Contact[]>('contacts')) ?? [...SEED_CONTACTS]
     this.threadsArr = (await this.deps.store.get<SmsThread[]>('sms:threads')) ?? seedThreads(Date.now())
     this.callLogArr = (await this.deps.store.get<CallEntry[]>('calllog')) ?? []
-    this.photosArr = (await this.deps.store.get<PhotoMeta[]>('camera:photos')) ?? seedPhotos(Date.now())
+    this.photosArr = await this.loadPhotos()
     this.ringIdxVal = (await this.deps.store.get<number>('ringtone:idx')) ?? 0
     this.wallpaperId = (await this.deps.store.get<number>('wallpaper')) ?? 0
     this.missedN = (await this.deps.store.get<number>('phone:missed')) ?? 0
@@ -217,6 +223,20 @@ class IPhoneOS implements PhoneOS {
   }
 
   /** 读取设置应用存档（AppStore 键空间 settings:*），映射到状态栏/自动锁定 */
+  /** 加载相机胶卷：版本化种子，升级时迁移为素材相册并保留用户相机照片。 */
+  private async loadPhotos(): Promise<PhotoMeta[]> {
+    const existing = (await this.deps.store.get<PhotoMeta[]>('camera:photos')) ?? []
+    const v = (await this.deps.store.get<number>('photos:seedV')) ?? 0
+    if (v >= PHOTOS_SEED_V && existing.length) return existing
+    const userCam = existing.filter(
+      (p) => p.src === undefined && p.id > 1000 && Number.isInteger(p.id),
+    )
+    const photos = [...seedPhotos(Date.now()), ...userCam]
+    await this.deps.store.set('camera:photos', photos)
+    await this.deps.store.set('photos:seedV', PHOTOS_SEED_V)
+    return photos
+  }
+
   private async loadSetFlags() {
     const v = await this.deps.store.get<{
       airplane?: boolean; bluetooth?: boolean; wifiOn?: boolean; autoLock?: number

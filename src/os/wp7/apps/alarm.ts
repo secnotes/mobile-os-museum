@@ -2,7 +2,7 @@ import type { AppContext, MiniApp } from '../../../kernel/types'
 import type { DeviceKey } from '../../../hal/input'
 import { wpStrings } from '../strings'
 import { C } from '../palette'
-import { W, H, TRAY_H, tray, F_LIGHT, F_REG, F_SEMI, onTrayChange } from '../ui'
+import { W, H, TRAY_H, tray, F_LIGHT, F_REG, F_SEMI, onTrayChange, checkbox } from '../ui'
 import { ALARM_SOUNDS, playSound } from '../ringtones'
 
 type AlarmItem = {
@@ -355,7 +355,8 @@ class AlarmUI {
     // 新建条
     const accent = this.ctx.host.getAccent?.() ?? C.BLUE
     s.fillRect(24, H - 100, W - 48, 70, accent)
-    s.textCenter(W / 2, H - 75, '+', { size: 40, font: F_SEMI(40), color: C.WHITE })
+    // '+' 墨迹中心在 text y+27 处：条中心 H-65 → y=H-92
+    s.textCenter(W / 2, H - 92, '+', { size: 40, font: F_SEMI(40), color: C.WHITE })
   }
 
   private drawEdit(str: ReturnType<typeof wpStrings>) {
@@ -375,11 +376,10 @@ class AlarmUI {
     s.textCenter((W * 3) / 4, 200, '▲', { size: 24, font: F_REG(24), color: C.GRAY })
     s.textCenter(W / 4, 392, '▼', { size: 24, font: F_REG(24), color: C.GRAY })
     s.textCenter((W * 3) / 4, 392, '▼', { size: 24, font: F_REG(24), color: C.GRAY })
-    // 开关行
+    // 开关行（WP7 复选框：主题色底白 X）
     s.text(24, 456, a.on ? str.alarmOn : str.alarmOff, { size: 26, font: F_REG(26), color: C.WHITE })
     const accent = this.ctx.host.getAccent?.() ?? C.BLUE
-    s.fillRect(W - 90, 428, 56, 26, a.on ? accent : C.DIM)
-    s.fillRect(a.on ? W - 46 : W - 82, 432, 18, 18, C.WHITE)
+    checkbox(s, W - 74, 452, a.on, accent)
     // 重复日
     const cw = (W - 48) / 7
     str.alarmWeekdays.forEach((w2, i) => {

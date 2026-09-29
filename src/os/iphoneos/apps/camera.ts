@@ -28,7 +28,7 @@ class CameraApp extends IphoneApp {
     const photos = this.bridge.photos()
     if (photos.length) {
       const last = photos[photos.length - 1]!
-      drawPhotoArt(s, 12, 424, 48, 48, last.seed)
+      drawPhotoArt(s, 12, 424, 48, 48, last.seed, last.src)
     }
     // 闪光
     if (this.flash > 0) {

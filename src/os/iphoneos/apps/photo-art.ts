@@ -1,12 +1,24 @@
 import type { Screen } from '../../../hal/screen'
 import { C, R } from '../palette'
 import { rrGrad, disc } from '../graphics'
+import { stockBitmap } from '../../stockPhotos'
 
 /**
- * 程序化「照片」：确定性 seed → 天空渐变 + 太阳/月 + 丘陵。
+ * 照片绘制：有素材 src 且位图已加载时 blit 真实照片（cover 填充），
+ * 否则用确定性 seed 程序化生成（天空渐变 + 太阳/月 + 丘陵）。
  * Photos 与 Camera 共用。
  */
-export function drawPhotoArt(s: Screen, x: number, y: number, w: number, h: number, seed: number) {
+export function drawPhotoArt(s: Screen, x: number, y: number, w: number, h: number, seed: number, src?: string) {
+  if (src) {
+    const bmp = stockBitmap(src)
+    if (bmp) {
+      const iw = (bmp as ImageBitmap).width || 640, ih = (bmp as ImageBitmap).height || 640
+      const sc = Math.max(w / iw, h / ih)
+      const dw = iw * sc, dh = ih * sc
+      s.blit(bmp, x + (w - dw) / 2, y + (h - dh) / 2, { w: dw, h: dh, smooth: true })
+      return
+    }
+  }
   const rng = mulberry(seed)
   // 天空：三种时段
   const skyKind = rng() % 3

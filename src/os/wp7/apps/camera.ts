@@ -7,8 +7,10 @@ export interface WPhoto {
   id: number
   w: number
   h: number
-  /** 调色板索引像素 */
+  /** 调色板索引像素（相机拍摄产物；素材照片为空数组） */
   data: number[]
+  /** 素材照片文件名（存在则渲染真实照片，否则用 data 调色板像素） */
+  src?: string
 }
 
 /** 取景器 432×432（正方形，Lumia 800 取景器的宽幅视角） */

@@ -1,14 +1,14 @@
 /**
  * Metro Pivot 列表组件：顶部一排浅色大标题（选中白、其余灰），
  * 左右滑动切换分页（复用 OS 的 Fx 做横向滑页），上下滑动纵向滚动，
- * 行支持开关（WP 滑动开关）与右箭头两种控件。
+ * 行支持开关（WP7 复选框：主题色底白 X）与右箭头两种控件。
  * 设置 / 闹钟等长列表页统一使用。
  */
 import type { AppContext } from '../../kernel/types'
 import type { DeviceKey } from '../../hal/input'
 import type { Screen } from '../../hal/screen'
 import { C } from './palette'
-import { W, TRAY_H, F_LIGHT, F_REG, roundRect, tray } from './ui'
+import { W, TRAY_H, F_LIGHT, F_REG, tray, checkbox } from './ui'
 import { PIVOT_TICK } from './ringtones'
 import type { Fx } from './anim'
 import { slideOpen, slideClose } from './anim'
@@ -17,7 +17,7 @@ export interface Row {
   title: string
   sub?: string
   h?: number
-  /** 右侧控件：toggle=滑动开关；chevron=› 箭头 */
+  /** 右侧控件：toggle=WP7 复选框；chevron=› 箭头 */
   control?: 'toggle' | 'chevron'
   /** toggle 当前态 */
   on?: boolean
@@ -41,10 +41,14 @@ export class ListPivot {
   private scroll = 0
   private offs: Array<() => void> = []
   private dead = false
+  /** 按下时记录的动作，抬起（无滑动）才执行（见 onTap/firePending） */
+  private pending: (() => void) | null = null
 
   constructor(private ctx: AppContext, private defs: PivotDef[]) {
     this.offs.push(ctx.onKey((k) => this.onKey(k)))
     this.offs.push(ctx.onTap((x, y) => this.onTap(x, y)))
+    this.offs.push(ctx.onTapUp(() => this.firePending()))
+    this.offs.push(ctx.onWheel((dy) => this.onWheel(dy)))
     this.offs.push(ctx.onSwipe((dir) => this.swipe(dir)))
     this.offs.push(ctx.onLang(() => this.draw()))
   }
@@ -110,7 +114,18 @@ export class ListPivot {
     this.draw()
   }
 
+  /** 鼠标滚轮：下滚 = 看下方内容（与手指上滑同效果） */
+  private onWheel(dy: number) {
+    if (this.dead) return
+    this.scroll += dy > 0 ? ROW_STEP : -ROW_STEP
+    this.clampScroll()
+    this.draw()
+  }
+
   private onTap(x: number, y: number) {
+    // 只记录命中动作不立即执行：总线 tap 在 pointerdown 即派发，
+    // 若立即执行会导致"按住滑动滚动时误触发行"
+    this.pending = null
     // 标题行：点标题切换
     if (y < CONTENT_Y - 10) {
       let tx = LEFT
@@ -118,7 +133,8 @@ export class ListPivot {
         const title = this.defs[i]!.title
         const tw = this.ctx.screen.measure(title, { size: 32, font: F_LIGHT(32) }) + 36
         if (x >= tx && x < tx + tw) {
-          this.goto(i, i > this.idx)
+          const gi = i
+          this.pending = () => this.goto(gi, gi > this.idx)
           return
         }
         tx += tw
@@ -130,11 +146,18 @@ export class ListPivot {
     for (const r of rows) {
       const h = r.h ?? (r.sub ? 82 : 64)
       if (y >= ry && y < ry + h) {
-        r.tap?.()
+        if (r.tap) this.pending = r.tap
         return
       }
       ry += h
     }
+  }
+
+  /** 抬起时触发按下时记录的动作（发生过滑动则总线不发 tapUp，自然不会误触发） */
+  private firePending() {
+    const p = this.pending
+    this.pending = null
+    p?.()
   }
 
   private contentH(): number {
@@ -203,20 +226,9 @@ export class ListPivot {
         s.fillRect(W - 36 + i, ry + h / 2 - 12 + i, w, 24 - i * 2, C.WHITE)
       }
     } else if (r.control === 'toggle') {
-      this.drawSwitch(W - 78, ry + h / 2 - 12, !!r.on)
+      // WP7 是 checkbox（主题色底白 X），不是 WP8 的滑动开关
+      checkbox(s, W - 74, ry + h / 2 - 19, !!r.on, this.accent())
     }
-  }
-
-  /** WP 滑动开关：46×24 圆角轨道 + 白色圆钮 */
-  private drawSwitch(x: number, y: number, on: boolean) {
-    const s = this.ctx.screen
-    const accent = this.accent()
-    if (on) roundRect(s, x, y, 56, 26, 13, accent, null)
-    else roundRect(s, x, y, 56, 26, 13, C.DIM, C.GRAY)
-    const kx = on ? x + 56 - 24 : x + 2
-    for (let dy = 0; dy < 22; dy++)
-      for (let dx = 0; dx < 22; dx++)
-        if (dx * dx + dy * dy <= 121) s.pset(kx + dx, y + 2 + dy, C.WHITE)
   }
 }
 

@@ -262,7 +262,7 @@ export class MinesGame {
     btns.forEach(([label, fill], i) => {
       const x = 24 + i * 142
       s.fillRect(x, H - 100, 134, 60, fill)
-      s.textCenter(x + 67, H - 80, label, { size: 30, font: F_REG(30), color: C.WHITE })
+      s.textCenterV(x + 67, H - 70, label, { size: 30, font: F_REG(30), color: C.WHITE })
     })
   }
 

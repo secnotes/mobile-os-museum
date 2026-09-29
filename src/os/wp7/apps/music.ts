@@ -317,7 +317,8 @@ class MusicUI {
     const label = preset
       ? (this.ctx.lang.get() === 'en' ? preset.en : preset.zh)
       : str.fmNoSignal
-    s.textCenter(W / 2, 250, label, { size: 24, font: F_REG(24), color: preset ? C.WHITE : C.GRAY })
+    // 110px 频率墨迹下沿约 y281：状态行下移到 300（墨迹 308..322），避免与频率重合
+    s.textCenter(W / 2, 300, label, { size: 24, font: F_REG(24), color: preset ? C.WHITE : C.GRAY })
     // 预设列表
     s.text(24, 390, str.fmPreset, { size: 22, font: F_REG(22), color: C.GRAY })
     FM_PRESETS.forEach((p, i) => {
