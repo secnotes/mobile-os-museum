@@ -133,12 +133,31 @@ export function Gallery({ onOpen, prefs }: { onOpen: (id: string) => void; prefs
             prefs.lang === 'en' ? (d.en?.description ?? d.description) : d.description
           const specs = prefs.lang === 'en' ? (d.en?.specs ?? d.specs) : d.specs
           return (
-            <section key={d.id} id={`dev-${d.id}`} className="device-card">
-              <div className="device-card-year">{d.era}</div>
+            <section
+              key={d.id}
+              id={`dev-${d.id}`}
+              className="device-card"
+              role="button"
+              tabIndex={0}
+              aria-label={`${name} — ${t.bootBtn}`}
+              onClick={() => onOpen(d.id)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault()
+                  onOpen(d.id)
+                }
+              }}
+            >
+              <span className="tl-node" aria-hidden>
+                <span className="tl-year">{d.era}</span>
+              </span>
               <div className="device-card-body">
                 <div className="device-card-name">
                   {name}
                   <span className="device-card-maker">{d.maker}</span>
+                  <span className="device-card-arrow" aria-hidden>
+                    ›
+                  </span>
                 </div>
                 <div className="device-card-tagline">{tagline}</div>
                 <CardStatusBar id={d.id} />
@@ -148,9 +167,6 @@ export function Gallery({ onOpen, prefs }: { onOpen: (id: string) => void; prefs
                     <li key={s}>{s}</li>
                   ))}
                 </ul>
-                <button className="boot-btn" onClick={() => onOpen(d.id)}>
-                  {t.bootBtn}
-                </button>
               </div>
             </section>
           )
