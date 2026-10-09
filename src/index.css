@@ -88,7 +88,6 @@ button {
   text-transform: uppercase;
   font-size: 12px;
   margin: 0 0 28px;
-  font-family: ui-monospace, monospace;
 }
 
 .gallery-intro {
@@ -162,7 +161,6 @@ button {
 
 /* 年份：导轨左侧的年代标签 */
 .tl-year {
-  font-family: ui-monospace, monospace;
   font-size: 16px;
   color: var(--ink-dim);
   letter-spacing: 0.02em;
@@ -1620,11 +1618,50 @@ button {
   }
 }
 
-/* ---------- 情景编排设置页 ---------- */
+/* ---------- 情景编排设置页（浮层） ---------- */
+
+/* 浮层底罩：盖在展馆之上，展馆不卸载，关闭后滚动位置原样恢复 */
+.settings-overlay {
+  position: fixed;
+  inset: 0;
+  /* 盖过目录抽屉(50)与各悬浮按钮(40/45) */
+  z-index: 60;
+  background: rgba(0, 0, 0, 0.55);
+  overflow-y: auto;
+  display: flex;
+  padding: 28px 16px 36px;
+}
+
+/* 浮层面板：margin:auto 居中；高度始终由内容决定——
+   不能用默认的 align-items:stretch，否则卡片被拉成视口高、
+   超出的文字会画到卡片底边框之外（手机上内容高于屏幕时必现） */
 .settings-page {
-  max-width: 920px;
-  margin: 0 auto;
-  padding: 20px 16px 60px;
+  width: min(920px, 100%);
+  flex: none;
+  margin: auto;
+  background: var(--card);
+  border: 1px solid var(--card-edge);
+  border-radius: 14px;
+  padding: 22px 26px 44px;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.5);
+}
+
+.settings-close {
+  margin-left: auto;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 1px solid var(--edge);
+  background: transparent;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.settings-close:hover {
+  color: var(--fg);
+  border-color: var(--accent-dim);
 }
 .settings-topbar {
   display: flex;
@@ -1813,7 +1850,6 @@ button {
 }
 
 .toc-year {
-  font-family: ui-monospace, monospace;
   font-size: 11px;
 }
 

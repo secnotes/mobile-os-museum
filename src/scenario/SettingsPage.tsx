@@ -5,10 +5,10 @@
  * 直接用 `new Store(deviceId)` 读写——与设备内 OS 共用同一 IndexedDB，
  * 改动即时落库，设备内 OS 的 onChange 会感知刷新。
  */
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { DEVICES } from '../devices/registry'
 import { Store } from '../hal/storage'
-import { STRINGS, type Prefs } from '../i18n'
+import { type Prefs } from '../i18n'
 import {
   SEED_CONTACTS,
   type Contact,
@@ -49,7 +49,7 @@ interface LocalStrings {
   delay: string
   triggerNow: string
   fired: string
-  back: string
+  close: string
   unsupported: string
   confirmDel: string
 }
@@ -83,7 +83,7 @@ const L: Record<'zh' | 'en', LocalStrings> = {
     delay: '延迟(秒)',
     triggerNow: '立即触发',
     fired: '已触发',
-    back: '← 返回展馆',
+    close: '关闭',
     unsupported: '该设备暂不支持情景编排',
     confirmDel: '删除这条？',
   },
@@ -115,7 +115,7 @@ const L: Record<'zh' | 'en', LocalStrings> = {
     delay: 'Delay(s)',
     triggerNow: 'Trigger now',
     fired: 'fired',
-    back: '← Back to gallery',
+    close: 'Close',
     unsupported: 'Scenario editing unavailable for this device',
     confirmDel: 'Delete this entry?',
   },
@@ -128,19 +128,28 @@ export function SettingsPage({ prefs, onBack }: { prefs: Prefs; onBack: () => vo
   const [devId, setDevId] = useState<string>(SUPPORTED[0])
   const [section, setSection] = useState<Section>('contacts')
   const store = useMemo(() => new Store(devId), [devId])
+  // 当前分区首次数据读取完成前，整张卡片不出现——
+  // 否则卡片先以空内容的高度出现，数据到达后被撑高（视觉上"先缩小再放大"）
+  const [ready, setReady] = useState(false)
+  const reportReady = useCallback(() => setReady(true), [])
+
+  // 切设备/切分区需重新等待数据就绪
+  useEffect(() => setReady(false), [devId, section])
 
   // 切到无通话记录的设备（大哥大）时，若当前在 calllog 分区则退回通讯录
   useEffect(() => {
     if (section === 'calllog' && NO_CALLLOG.includes(devId)) setSection('contacts')
   }, [devId, section])
 
+  // 卡片始终渲染（否则 editor 不挂载、onReady 无人调用 → 死锁）；
+  // 数据就绪前仅不可见：布局已按最终内容完成，出现时不会有高度跳变
   return (
-    <div className="settings-page">
+    <div className="settings-page" style={ready ? undefined : { visibility: 'hidden' }}>
       <div className="settings-topbar">
-        <button className="ghost-btn" onClick={onBack}>
-          {STRINGS[prefs.lang].backToGallery}
-        </button>
         <h1>{t.title}</h1>
+        <button className="settings-close" onClick={onBack} title={t.close} aria-label={t.close}>
+          ✕
+        </button>
       </div>
       <p className="settings-desc">{t.desc}</p>
 
@@ -180,10 +189,10 @@ export function SettingsPage({ prefs, onBack }: { prefs: Prefs; onBack: () => vo
       </div>
 
       <div className="settings-body">
-        {section === 'contacts' && <ContactsEditor store={store} t={t} />}
-        {section === 'calllog' && <CalllogEditor store={store} t={t} />}
-        {section === 'messages' && <MessagesEditor store={store} t={t} />}
-        {section === 'events' && <EventsEditor store={store} t={t} />}
+        {section === 'contacts' && <ContactsEditor store={store} t={t} onReady={reportReady} />}
+        {section === 'calllog' && <CalllogEditor store={store} t={t} onReady={reportReady} />}
+        {section === 'messages' && <MessagesEditor store={store} t={t} onReady={reportReady} />}
+        {section === 'events' && <EventsEditor store={store} t={t} onReady={reportReady} />}
       </div>
     </div>
   )
@@ -191,17 +200,25 @@ export function SettingsPage({ prefs, onBack }: { prefs: Prefs; onBack: () => vo
 
 // ---------------- 通讯录 ----------------
 
-function ContactsEditor({ store, t }: { store: Store; t: LocalStrings }) {
+function ContactsEditor({ store, t, onReady }: { store: Store; t: LocalStrings; onReady: () => void }) {
   const [list, setList] = useState<Contact[]>([])
   const [name, setName] = useState('')
   const [tel, setTel] = useState('')
 
   useEffect(() => {
-    void store.get<Contact[]>('contacts').then((v) => setList(v && v.length ? v : [...SEED_CONTACTS]))
+    let alive = true
+    void store.get<Contact[]>('contacts').then((v) => {
+      if (!alive) return
+      setList(v && v.length ? v : [...SEED_CONTACTS])
+      onReady()
+    })
     const off = store.onChange((fk) => {
       if (fk.endsWith(':contacts')) void store.get<Contact[]>('contacts').then((v) => setList(v ?? []))
     })
-    return off
+    return () => {
+      alive = false
+      off()
+    }
   }, [store])
 
   const persist = async (next: Contact[]) => {
@@ -259,7 +276,7 @@ function ContactsEditor({ store, t }: { store: Store; t: LocalStrings }) {
 
 // ---------------- 通话记录 ----------------
 
-function CalllogEditor({ store, t }: { store: Store; t: LocalStrings }) {
+function CalllogEditor({ store, t, onReady }: { store: Store; t: LocalStrings; onReady: () => void }) {
   const [list, setList] = useState<CallEntry[]>([])
   const [tel, setTel] = useState('')
   const [name, setName] = useState('')
@@ -268,11 +285,20 @@ function CalllogEditor({ store, t }: { store: Store; t: LocalStrings }) {
   const [dur, setDur] = useState(0)
 
   useEffect(() => {
-    void store.get<CallEntry[]>('calllog').then((v) => setList(v ?? []))
+    let alive = true
+    void store.get<CallEntry[]>('calllog').then((v) => {
+      if (alive) {
+        setList(v ?? [])
+        onReady()
+      }
+    })
     const off = store.onChange((fk) => {
       if (fk.endsWith(':calllog')) void store.get<CallEntry[]>('calllog').then((v) => setList(v ?? []))
     })
-    return off
+    return () => {
+      alive = false
+      off()
+    }
   }, [store])
 
   const persist = async (next: CallEntry[]) => {
@@ -368,17 +394,26 @@ interface Msg {
   mine: boolean
 }
 
-function MessagesEditor({ store, t }: { store: Store; t: LocalStrings }) {
+function MessagesEditor({ store, t, onReady }: { store: Store; t: LocalStrings; onReady: () => void }) {
   const [list, setList] = useState<Msg[]>([])
   const [from, setFrom] = useState('')
   const [text, setText] = useState('')
 
   useEffect(() => {
-    void store.get<Msg[]>('messages:inbox').then((v) => setList(v ?? []))
+    let alive = true
+    void store.get<Msg[]>('messages:inbox').then((v) => {
+      if (alive) {
+        setList(v ?? [])
+        onReady()
+      }
+    })
     const off = store.onChange((fk) => {
       if (fk.endsWith(':messages:inbox')) void store.get<Msg[]>('messages:inbox').then((v) => setList(v ?? []))
     })
-    return off
+    return () => {
+      alive = false
+      off()
+    }
   }, [store])
 
   const persist = async (next: Msg[]) => {
@@ -451,7 +486,7 @@ function MessagesEditor({ store, t }: { store: Store; t: LocalStrings }) {
 
 // ---------------- 情景事件 ----------------
 
-function EventsEditor({ store, t }: { store: Store; t: LocalStrings }) {
+function EventsEditor({ store, t, onReady }: { store: Store; t: LocalStrings; onReady: () => void }) {
   const [list, setList] = useState<ScenarioEvent[]>([])
   const [type, setType] = useState<'call' | 'sms'>('call')
   const [from, setFrom] = useState('')
@@ -460,11 +495,20 @@ function EventsEditor({ store, t }: { store: Store; t: LocalStrings }) {
   const [delay, setDelay] = useState(5)
 
   useEffect(() => {
-    void store.get<ScenarioEvent[]>('events').then((v) => setList(v ?? []))
+    let alive = true
+    void store.get<ScenarioEvent[]>('events').then((v) => {
+      if (alive) {
+        setList(v ?? [])
+        onReady()
+      }
+    })
     const off = store.onChange((fk) => {
       if (fk.endsWith(':events')) void store.get<ScenarioEvent[]>('events').then((v) => setList(v ?? []))
     })
-    return off
+    return () => {
+      alive = false
+      off()
+    }
   }, [store])
 
   const persist = async (next: ScenarioEvent[]) => {

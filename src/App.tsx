@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useState, type ReactNode } from 'react'
 import { Gallery } from './gallery/Gallery'
 import { DeviceShell } from './shell/DeviceShell'
 import { SettingsPage } from './scenario/SettingsPage'
@@ -51,9 +51,7 @@ export default function App() {
   const isSettings = hash === '#/settings'
   return (
     <>
-      {isSettings ? (
-        <SettingsPage prefs={prefs} onBack={back} />
-      ) : m && !device ? (
+      {m && !device ? (
         <div className="notfound">
           <p>{STRINGS[lang].notFound}</p>
           <button className="ghost-btn" onClick={back}>
@@ -65,8 +63,66 @@ export default function App() {
       ) : (
         <Gallery onOpen={open} prefs={prefs} />
       )}
+      {/* 设置浮层：展馆/设备页保持在底下不卸载，关闭后原位恢复 */}
+      {isSettings && (
+        <SettingsOverlay onClose={back}>
+          <SettingsPage prefs={prefs} onBack={back} />
+        </SettingsOverlay>
+      )}
       <BackToTop label={STRINGS[lang].toTop} />
     </>
+  )
+}
+
+/** 设置浮层：盖在当前页面之上；点背景或 Esc 关闭，打开期间锁住底下页面滚动 */
+function SettingsOverlay({ children, onClose }: { children: ReactNode; onClose: () => void }) {
+  // 锁定必须在浏览器绘制前完成，否则浮层会先以未锁定状态闪一帧
+  useLayoutEffect(() => {
+    const y = window.scrollY
+    const body = document.body
+    // 移动端（iOS Safari/Android Chrome）overflow:hidden 锁不住滚动且会丢失位置，
+    // 用 position:fixed 固定；桌面端 overflow:hidden 即可（避免 fixed 导致的宽度变化）
+    const mobile = window.matchMedia?.('(pointer: coarse)').matches
+    if (mobile) {
+      const prev = {
+        position: body.style.position,
+        top: body.style.top,
+        width: body.style.width,
+      }
+      body.style.position = 'fixed'
+      body.style.top = `-${y}px`
+      body.style.width = '100%'
+      return () => {
+        body.style.position = prev.position
+        body.style.top = prev.top
+        body.style.width = prev.width
+        window.scrollTo(0, y)
+      }
+    }
+    const prevOverflow = body.style.overflow
+    body.style.overflow = 'hidden'
+    return () => {
+      body.style.overflow = prevOverflow
+      window.scrollTo(0, y)
+    }
+  }, [])
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onClose])
+  return (
+    <div
+      className="settings-overlay"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose()
+      }}
+    >
+      {children}
+    </div>
   )
 }
 
